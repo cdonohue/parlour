@@ -1,4 +1,5 @@
 import * as pty from 'node-pty'
+import { mkdir } from 'node:fs/promises'
 import { WebContents } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 
@@ -19,7 +20,7 @@ export class PtyManager {
   private ptys = new Map<string, PtyInstance>()
   private nextId = 0
 
-  create(workingDir: string, webContents: WebContents, shell?: string, command?: string[], initialWrite?: string, extraEnv?: Record<string, string>): string {
+  async create(workingDir: string, webContents: WebContents, shell?: string, command?: string[], initialWrite?: string, extraEnv?: Record<string, string>): Promise<string> {
     const id = `pty-${++this.nextId}`
 
     let file: string
@@ -32,6 +33,7 @@ export class PtyManager {
       args = []
     }
 
+    await mkdir(workingDir, { recursive: true })
     const { CLAUDECODE, ...cleanEnv } = process.env
     const proc = pty.spawn(file, args, {
       name: 'xterm-256color',

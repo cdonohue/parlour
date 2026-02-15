@@ -87,7 +87,7 @@ export function registerIpcHandlers(sharedPtyManager: PtyManager, sharedTaskSche
   ipcMain.handle(IPC.PTY_CREATE, async (_e, workingDir: string, shell?: string, extraEnv?: Record<string, string>, command?: string[]) => {
     const win = BrowserWindow.fromWebContents(_e.sender)
     if (!win) throw new Error('No window found')
-    const ptyId = ptyManager.create(workingDir, win.webContents, shell, command, undefined, extraEnv)
+    const ptyId = await ptyManager.create(workingDir, win.webContents, shell, command, undefined, extraEnv)
     ptyManager.onExit(ptyId, (exitCode) => {
       if (!win.isDestroyed()) {
         win.webContents.send(`${IPC.PTY_EXIT}:${ptyId}`, exitCode)

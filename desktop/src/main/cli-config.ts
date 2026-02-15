@@ -171,7 +171,9 @@ async function configCustom(ctx: ConfigContext): Promise<void> {
     }
   }
 
-  await writeFile(join(chatDir, custom.mcpConfig.file), JSON.stringify(config, null, 2), 'utf-8')
+  const configPath = join(chatDir, custom.mcpConfig.file)
+  await mkdir(join(configPath, '..'), { recursive: true })
+  await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
 
   if (custom.instructionsFile && custom.instructionsFile !== 'AGENTS.md') {
     await linkInstructions(chatDir, custom.instructionsFile)
