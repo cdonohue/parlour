@@ -295,7 +295,7 @@ export class ChatRegistry {
   // ── Chat lifecycle ──
 
   async createChat(opts: CreateChatOpts): Promise<{ chat: ChatRecord }> {
-    const chatId = crypto.randomUUID()
+    const chatId = crypto.randomUUID().slice(0, 8)
     const now = Date.now()
     const llmCommand = this.resolveLlmCommand(opts.llmCommand)
     const dirPath = await createChatDir(chatId)
@@ -365,7 +365,7 @@ export class ChatRegistry {
       throw new Error(`Max nesting depth (${maxDepth}) reached`)
     }
 
-    const chatId = crypto.randomUUID()
+    const chatId = crypto.randomUUID().slice(0, 8)
     const now = Date.now()
     const llmCommand = this.resolveLlmCommand(opts.llmCommand, parent.llmCommand)
     const dirPath = await createChatDir(chatId, parent.dirPath)
