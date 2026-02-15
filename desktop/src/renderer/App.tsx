@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback, useState } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import { Allotment } from 'allotment'
 import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import 'allotment/dist/style.css'
@@ -34,12 +34,20 @@ export function App() {
     resumeChat,
   } = useAppStore()
 
-  const [openers, setOpeners] = useState<Array<{ id: string; name: string }>>([])
-  useEffect(() => {
-    window.api.app.discoverOpeners().then(setOpeners).catch(() => {})
-  }, [])
-
   const chat = chats.find((c) => c.id === activeChatId)
+
+  const openInEditor = useCallback(async (path: string) => {
+    const s = useAppStore.getState()
+    let opener = s.settings.lastOpenIn
+    if (!opener) {
+      const openers = await window.api.app.discoverOpeners()
+      if (openers.length > 0) {
+        opener = openers[0].id
+        s.updateSettings({ lastOpenIn: opener })
+      }
+    }
+    if (opener) window.api.app.openIn(opener, path)
+  }, [])
 
   useEffect(() => {
     if (chat && !chat.ptyId && chat.dirPath) resumeChat(chat.id)
@@ -95,10 +103,8 @@ export function App() {
                       subtitle={resolveLlmCommand(settings, chat.llmCommand)}
                       breadcrumbs={chatBreadcrumbs}
                       projects={chat.projects}
-                      dirPath={chat.dirPath}
-                      openers={openers}
                       onOpenUrl={(url) => window.open(url)}
-                      onOpenIn={(openerId, path) => window.api.app.openIn(openerId, path)}
+                      onOpen={openInEditor}
                     />
                     <div className={styles.chatTerminalWrapper}>
                       <TerminalPanel key={chat.id} ptyId={chat.ptyId} active={true} />
