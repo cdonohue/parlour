@@ -1,0 +1,32 @@
+{
+  "name": "@parlour/ui",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles": "./src/styles/index.css",
+    "./styles/*": "./src/styles/*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@monaco-editor/react": "^4.0.0",
+    "@pierre/diffs": "^1.0.0",
+    "react-arborist": "^3.0.0",
+    "lucide-react": "^0.400.0"
+  },
+  "devDependencies": {
+    "@storybook/react": "^10.2.8",
+    "@storybook/react-vite": "^10.2.8",
+    "storybook": "^10.2.8"
+  },
+  "dependencies": {
+    "cronstrue": "^3.12.0",
+    "motion": "^12.34.0"
+  }
+}

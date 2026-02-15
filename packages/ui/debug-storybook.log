@@ -1,0 +1,34 @@
+[16:00:28.330] [INFO] storybook v10.2.8
+[16:00:29.329] [DEBUG] Getting package.json info for /Users/chad/Projects/grove/packages/ui/package.json...
+[16:00:29.330] [WARN] You are currently using Storybook 10.2.8 but you have packages which are incompatible with it:
+
+- @storybook/addon-essentials@8.6.14 which depends on 8.6.14
+ Repo: https://github.com/storybookjs/storybook/tree/next/code/addons/essentials
+
+Please consider updating your packages or contacting the maintainers for compatibility details.
+
+For more details on compatibility guidance, see:
+https://github.com/storybookjs/storybook/issues/32836
+[16:00:29.532] [INFO] Storybook collects completely anonymous usage telemetry. We use it to shape Storybook's roadmap and prioritize features. You can learn more, including how to opt out, at https://storybook.js.org/telemetry
+[16:00:29.710] [INFO] Starting...
+[16:00:29.862] [ERROR] [38;2;241;97;97mSB_CORE-SERVER_0004 (NoMatchingExportError): There was an exports mismatch error when trying to build Storybook.
+Please check whether the versions of your Storybook packages match whenever possible, as this might be the cause.
+
+Problematic example:
+{ "@storybook/react": "7.5.3", "@storybook/react-vite": "7.4.5", "storybook": "7.3.0" }
+
+Correct example:
+{ "@storybook/react": "7.5.3", "@storybook/react-vite": "7.5.3", "storybook": "7.5.3" }
+
+Please run `npx storybook doctor` for guidance on how to fix this issue.
+
+More info: 
+[39m
+    at buildOrThrow (file:///Users/chad/Projects/grove/node_modules/.bun/storybook@10.2.8+57c300bd6617d60e/node_modules/storybook/dist/core-server/index.js:4509:9)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async buildDevStandalone (file:///Users/chad/Projects/grove/node_modules/.bun/storybook@10.2.8+57c300bd6617d60e/node_modules/storybook/dist/core-server/index.js:7577:66)
+    at async withTelemetry (file:///Users/chad/Projects/grove/node_modules/.bun/storybook@10.2.8+57c300bd6617d60e/node_modules/storybook/dist/_node-chunks/chunk-KIOKJLL5.js:218:12)
+    at async dev (file:///Users/chad/Projects/grove/node_modules/.bun/storybook@10.2.8+57c300bd6617d60e/node_modules/storybook/dist/bin/core.js:2734:3)
+    at async _Command.<anonymous> (file:///Users/chad/Projects/grove/node_modules/.bun/storybook@10.2.8+57c300bd6617d60e/node_modules/storybook/dist/bin/core.js:2803:92)
+[16:00:29.863] [WARN] Broken build, fix the error above.
+You may need to refresh the browser.

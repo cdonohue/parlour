@@ -1,0 +1,124 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+
+.layout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.centerPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: var(--surface-1);
+}
+
+.contentArea {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  background: var(--surface-0);
+}
+
+/* ── Chat terminal view ── */
+
+.chatView {
+  height: 100%;
+  background: var(--surface-0);
+}
+
+.chatLayer {
+  display: flex;
+  flex-direction: column;
+}
+
+.chatTerminalWrapper {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+
+/* ── Empty state ── */
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-5);
+  color: var(--text-ghost);
+  user-select: none;
+}
+
+.emptyTitle {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+  letter-spacing: 0.01em;
+}
+
+
+.emptyActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.emptyHint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-family: var(--font-ui);
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  padding: 2px var(--space-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  line-height: 18px;
+}
+
+.paneContent {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.paneLayer {
+  position: absolute;
+  inset: 0;
+}
+
+.paneLayerActive {
+  z-index: 1;
+}
+
+.paneLayerInactive {
+  z-index: 0;
+  pointer-events: none;
+  visibility: hidden;
+}

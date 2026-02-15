@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parlour — Simplified Directory Model</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-surface: #161b22;
+    --bg-raised: #1c2129;
+    --bg-hover: #21262d;
+    --border: #30363d;
+    --border-active: #58a6ff;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --text-dim: #484f58;
+    --green: #3fb950;
+    --green-dim: #1a3a2a;
+    --red: #f85149;
+    --red-dim: #3d1a1a;
+    --blue: #58a6ff;
+    --blue-dim: #1a2f4a;
+    --orange: #d29922;
+    --orange-dim: #3d2e0f;
+    --purple: #bc8cff;
+    --purple-dim: #2a1a3d;
+    --cyan: #39d2c0;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    padding: 24px 32px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .header .subtitle {
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 32px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: var(--font);
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--text);
+    border-bottom-color: var(--blue);
+  }
+
+  /* Content */
+  .content {
+    padding: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Filesystem Tree ── */
+  .tree { font-family: var(--mono); font-size: 13px; }
+  .tree-node {
+    padding: 2px 0;
+    cursor: default;
+    user-select: none;
+  }
+  .tree-node.expandable { cursor: pointer; }
+  .tree-node:hover { background: var(--bg-hover); border-radius: 4px; }
+  .tree-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+  }
+  .tree-icon { width: 16px; text-align: center; font-size: 12px; flex-shrink: 0; }
+  .tree-name { color: var(--text); }
+  .tree-name.dir { color: var(--blue); }
+  .tree-name.file { color: var(--text); }
+  .tree-name.special { color: var(--orange); }
+  .tree-name.gitignored { color: var(--text-muted); }
+  .tree-comment { color: var(--text-dim); margin-left: 12px; font-size: 12px; }
+  .tree-children { padding-left: 20px; }
+  .tree-children.collapsed { display: none; }
+
+  .tree-legend {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .tree-legend span { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+
+  /* Scenario selector */
+  .scenario-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .scenario-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-family: var(--font);
+    font-weight: 500;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .scenario-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  .scenario-btn.active {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-dim);
+  }
+
+  /* ── Lifecycle ── */
+  .lifecycle-track {
+    position: relative;
+    padding: 20px 0;
+  }
+  .lifecycle-steps {
+    display: flex;
+    gap: 0;
+    position: relative;
+  }
+  .lifecycle-step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    padding: 0 8px;
+  }
+  .step-dot {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 2px solid var(--border);
+    margin: 0 auto 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.4s;
+    position: relative;
+    z-index: 2;
+  }
+  .step-dot.reached {
+    border-color: var(--green);
+    background: var(--green-dim);
+  }
+  .step-dot.current {
+    border-color: var(--blue);
+    background: var(--blue-dim);
+    box-shadow: 0 0 12px rgba(88, 166, 255, 0.3);
+  }
+  .step-dot.removed {
+    border-color: var(--red);
+    background: var(--red-dim);
+  }
+  .step-label {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    transition: color 0.3s;
+  }
+  .step-label.reached { color: var(--green); }
+  .step-label.current { color: var(--blue); }
+  .step-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    max-width: 160px;
+    margin: 0 auto;
+  }
+  .lifecycle-connector {
+    position: absolute;
+    top: 38px;
+    left: calc(50% + 18px);
+    right: calc(-50% + 18px);
+    height: 2px;
+    background: var(--border);
+    z-index: 1;
+    transition: background 0.4s;
+  }
+  .lifecycle-connector.reached { background: var(--green); }
+  .lifecycle-step:last-child .lifecycle-connector { display: none; }
+
+  .lifecycle-controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 28px;
+  }
+  .lc-btn {
+    padding: 8px 20px;
+    font-size: 13px;
+    font-family: var(--font);
+    font-weight: 500;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .lc-btn:hover { border-color: var(--text-muted); }
+  .lc-btn:disabled { opacity: 0.3; cursor: default; }
+  .lc-btn.primary { border-color: var(--blue); color: var(--blue); }
+
+  .lifecycle-detail {
+    margin-top: 24px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 120px;
+  }
+  .lifecycle-detail h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: var(--blue);
+  }
+  .lifecycle-detail .cmd {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 8px 0;
+    color: var(--green);
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .lifecycle-detail .cmd .comment { color: var(--text-dim); }
+  .lifecycle-detail p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 6px 0;
+  }
+
+  /* ── MCP Tools ── */
+  .tool-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .tool-group {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .tool-group-header {
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tool-group-header .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+  }
+  .tool-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .tool-item:last-child { border-bottom: none; }
+  .tool-item:hover { background: var(--bg-hover); }
+  .tool-item.expanded { background: var(--bg-raised); }
+  .tool-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cyan);
+  }
+  .tool-brief {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .tool-detail {
+    display: none;
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+  .tool-item.expanded .tool-detail { display: block; }
+  .tool-sig { color: var(--purple); }
+  .tool-ret { color: var(--green); }
+  .tool-note { color: var(--text-dim); font-style: italic; font-family: var(--font); }
+
+  /* ── Before/After ── */
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 768px) {
+    .comparison { grid-template-columns: 1fr; }
+  }
+  .comparison-col {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .comparison-col.before { border-color: var(--red); border-color: #f8514933; }
+  .comparison-col.after { border-color: var(--green); border-color: #3fb95033; }
+  .comparison-header {
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .comparison-header .count {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 10px;
+  }
+  .before .comparison-header { color: var(--red); }
+  .before .comparison-header .count { background: var(--red-dim); color: var(--red); }
+  .after .comparison-header { color: var(--green); }
+  .after .comparison-header .count { background: var(--green-dim); color: var(--green); }
+  .comparison-list { padding: 8px 0; }
+  .comparison-item {
+    padding: 8px 20px;
+    font-size: 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .comparison-item .icon { flex-shrink: 0; font-size: 12px; margin-top: 2px; }
+  .before .comparison-item .icon { color: var(--red); }
+  .after .comparison-item .icon { color: var(--green); }
+  .comparison-item .label { font-weight: 500; }
+  .comparison-item .desc { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+
+  .comparison-category {
+    padding: 10px 20px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 28px;
+    padding: 20px 24px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .stat-value.red { color: var(--red); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* ── Sidebar Preview ── */
+  .sidebar-preview {
+    width: 300px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .sidebar-preview-header {
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-chat {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .sidebar-chat:hover { background: var(--bg-hover); }
+  .sidebar-chat:last-child { border-bottom: none; }
+  .sidebar-chat-name {
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .sidebar-chat-name .status {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status.active { background: var(--green); box-shadow: 0 0 6px rgba(63, 185, 80, 0.4); }
+  .status.idle { background: var(--orange); }
+  .status.done { background: var(--text-dim); }
+  .status.error { background: var(--red); }
+  .sidebar-chat-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding-left: 15px;
+    font-family: var(--mono);
+  }
+  .sidebar-chat-meta .pr {
+    color: var(--green);
+  }
+
+  .sidebar-section {
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+  }
+  .sidebar-explanation {
+    flex: 1;
+  }
+  .sidebar-explanation h3 {
+    font-size: 14px;
+    margin-bottom: 16px;
+    color: var(--blue);
+  }
+  .derive-step {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: flex-start;
+  }
+  .derive-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .derive-content {
+    font-size: 13px;
+  }
+  .derive-content .cmd-inline {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--cyan);
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .derive-content .result {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  /* ── Section headers ── */
+  .section-header {
+    margin-bottom: 20px;
+  }
+  .section-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .section-header p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* ── Principles ── */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .principle {
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .principle-num {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .principle-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .principle-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* ── Workflows ── */
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 900px) { .workflow-grid { grid-template-columns: 1fr; } }
+  .workflow-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .workflow-card:hover { border-color: var(--text-dim); }
+  .workflow-card.expanded { border-color: var(--blue); }
+  .workflow-card-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .workflow-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .workflow-card.expanded .workflow-num {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-dim);
+  }
+  .workflow-title { font-size: 13px; font-weight: 600; }
+  .workflow-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .workflow-body {
+    display: none;
+    padding: 0 20px 16px;
+  }
+  .workflow-card.expanded .workflow-body { display: block; }
+  .workflow-prompt {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    border-left: 3px solid var(--purple);
+  }
+  .workflow-steps {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--bg);
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: var(--green);
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .workflow-steps .wf-comment { color: var(--text-dim); }
+  .workflow-steps .wf-tool { color: var(--cyan); }
+  .workflow-sidebar {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .workflow-sidebar .ws-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 4px; font-family: var(--font); }
+  .workflow-tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .workflow-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-family: var(--font);
+  }
+  .workflow-tag.open_dir { background: var(--blue-dim); color: var(--cyan); }
+  .workflow-tag.dispatch { background: var(--purple-dim); color: var(--purple); }
+  .workflow-tag.schedule { background: var(--orange-dim); color: var(--orange); }
+
+  /* ── Multi-CLI ── */
+  .cli-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 900px) { .cli-grid { grid-template-columns: 1fr; } }
+  .cli-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .cli-card:hover { border-color: var(--text-dim); }
+  .cli-card.expanded { border-color: var(--blue); }
+  .cli-card-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cli-card-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cli-icon {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .cli-name { font-size: 14px; font-weight: 600; }
+  .cli-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .cli-status.detected { background: var(--green-dim); color: var(--green); }
+  .cli-status.manual { background: var(--orange-dim); color: var(--orange); }
+  .cli-body {
+    display: none;
+    padding: 0 20px 16px;
+  }
+  .cli-card.expanded .cli-body { display: block; }
+  .cli-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cli-row:last-child { border-bottom: none; }
+  .cli-row-label { color: var(--text-muted); }
+  .cli-row-value { font-family: var(--mono); font-size: 11px; color: var(--cyan); text-align: right; max-width: 60%; }
+  .cli-files {
+    margin-top: 12px;
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text-muted);
+  }
+  .cli-files .cf-dir { color: var(--blue); }
+  .cli-files .cf-file { color: var(--text); }
+  .cli-files .cf-comment { color: var(--text-dim); }
+  .cli-files .cf-link { color: var(--purple); }
+
+  .multicli-principle {
+    margin-top: 28px;
+    padding: 20px 24px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .multicli-principle h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: var(--blue);
+  }
+  .multicli-flow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .multicli-flow-step {
+    padding: 8px 16px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .multicli-flow-arrow { color: var(--text-dim); font-size: 16px; }
+  .settings-mock {
+    margin-top: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .settings-mock-header {
+    padding: 10px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .settings-mock-row {
+    padding: 10px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .settings-mock-row:last-child { border-bottom: none; }
+  .settings-mock-row .label { color: var(--text); }
+  .settings-mock-row .value {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--mono);
+    background: var(--bg-raised);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Parlour</h1>
+  <span class="subtitle">Simplified Directory Model</span>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-tab="filesystem">Filesystem</button>
+  <button class="tab" data-tab="lifecycle">Chat Lifecycle</button>
+  <button class="tab" data-tab="mcp">MCP Tools</button>
+  <button class="tab" data-tab="comparison">Before / After</button>
+  <button class="tab" data-tab="workflows">Workflows</button>
+  <button class="tab" data-tab="multicli">Multi-CLI</button>
+  <button class="tab" data-tab="context">Project Context</button>
+</div>
+
+<!-- ════════════════════ FILESYSTEM ════════════════════ -->
+<div class="content">
+<div class="panel active" id="panel-filesystem">
+  <div class="section-header">
+    <h2>Filesystem Layout</h2>
+    <p>Everything lives under ~/.parlour/. Chat dirs own their clones. Delete the dir, everything's gone.</p>
+  </div>
+
+  <div class="scenario-bar" id="scenario-bar">
+    <button class="scenario-btn active" data-scenario="single">Single project chat</button>
+    <button class="scenario-btn" data-scenario="multi">Multi-project chat</button>
+    <button class="scenario-btn" data-scenario="child">Parent + child</button>
+    <button class="scenario-btn" data-scenario="setup">With project-setup</button>
+  </div>
+
+  <div class="tree-legend">
+    <span><span class="legend-dot" style="background:var(--blue)"></span> Directory</span>
+    <span><span class="legend-dot" style="background:var(--text)"></span> File</span>
+    <span><span class="legend-dot" style="background:var(--orange)"></span> Config</span>
+    <span><span class="legend-dot" style="background:var(--text-muted)"></span> Gitignored</span>
+  </div>
+
+  <div class="tree" id="filesystem-tree"></div>
+</div>
+
+<!-- ════════════════════ LIFECYCLE ════════════════════ -->
+<div class="panel" id="panel-lifecycle">
+  <div class="section-header">
+    <h2>Chat Lifecycle</h2>
+    <p>Create, open projects, work, resume, delete. No attach, no PTY restarts.</p>
+  </div>
+
+  <div class="lifecycle-track">
+    <div class="lifecycle-steps" id="lifecycle-steps"></div>
+  </div>
+
+  <div class="lifecycle-controls">
+    <button class="lc-btn" id="lc-prev" disabled>Previous</button>
+    <button class="lc-btn primary" id="lc-next">Next</button>
+    <button class="lc-btn" id="lc-reset">Reset</button>
+  </div>
+
+  <div class="lifecycle-detail" id="lifecycle-detail"></div>
+</div>
+
+<!-- ════════════════════ MCP TOOLS ════════════════════ -->
+<div class="panel" id="panel-mcp">
+  <div class="section-header">
+    <h2>MCP Tools</h2>
+    <p>10 tools, down from 13. Click to expand.</p>
+  </div>
+  <div class="tool-grid" id="tool-grid"></div>
+</div>
+
+<!-- ════════════════════ BEFORE/AFTER ════════════════════ -->
+<div class="panel" id="panel-comparison">
+  <div class="section-header">
+    <h2>Before / After</h2>
+    <p>What gets removed and what replaces it.</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-value red">13</div><div class="stat-label">MCP tools before</div></div>
+    <div class="stat"><div class="stat-value green">10</div><div class="stat-label">MCP tools after</div></div>
+    <div class="stat"><div class="stat-value red">10+</div><div class="stat-label">Concepts before</div></div>
+    <div class="stat"><div class="stat-value green">3</div><div class="stat-label">Concepts after</div></div>
+    <div class="stat"><div class="stat-value blue">0</div><div class="stat-label">Symlinks</div></div>
+    <div class="stat"><div class="stat-value blue">0</div><div class="stat-label">PTY restarts</div></div>
+  </div>
+
+  <div class="comparison" id="comparison"></div>
+</div>
+
+<!-- ════════════════════ WORKFLOWS ════════════════════ -->
+<div class="panel" id="panel-workflows">
+  <div class="section-header">
+    <h2>Workflows</h2>
+    <p>Every workflow uses 3 primitives: open_dir, dispatch, schedule_chat.</p>
+  </div>
+  <div class="workflow-grid" id="workflow-grid"></div>
+</div>
+
+<!-- ════════════════════ MULTI-CLI ════════════════════ -->
+<div class="panel" id="panel-multicli">
+  <div class="section-header">
+    <h2>Multi-CLI Configuration</h2>
+    <p>Parlour generates CLI-specific config at chat creation. AGENTS.md is canonical. Click each CLI to see what gets generated.</p>
+  </div>
+  <div class="cli-grid" id="cli-grid"></div>
+
+  <div class="multicli-principle">
+    <h3>How it works</h3>
+    <div class="multicli-flow">
+      <div class="multicli-flow-step" style="color:var(--orange)">AGENTS.md</div>
+      <div class="multicli-flow-arrow">&rarr;</div>
+      <div class="multicli-flow-step" style="color:var(--purple)">Symlink to CLI instruction file</div>
+      <div class="multicli-flow-arrow">&rarr;</div>
+      <div class="multicli-flow-step" style="color:var(--cyan)">Generate MCP config in CLI format</div>
+      <div class="multicli-flow-arrow">&rarr;</div>
+      <div class="multicli-flow-step" style="color:var(--green)">Auto-approve Parlour tools</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;">
+      <div class="settings-mock">
+        <div class="settings-mock-header">Settings &mdash; LLM Defaults</div>
+        <div class="settings-mock-row"><span class="label">Default LLM</span><span class="value">Claude Code</span></div>
+        <div class="settings-mock-row"><span class="label">Claude Code</span><span class="value">Edit permissions...</span></div>
+        <div class="settings-mock-row"><span class="label">Gemini CLI</span><span class="value">Edit settings...</span></div>
+        <div class="settings-mock-row"><span class="label">Codex CLI</span><span class="value">Edit config...</span></div>
+        <div class="settings-mock-row"><span class="label">OpenCode</span><span class="value">Edit permissions...</span></div>
+      </div>
+      <div class="settings-mock">
+        <div class="settings-mock-header">Settings &mdash; Global &amp; Custom</div>
+        <div class="settings-mock-row"><span class="label">Global MCP Servers</span><span class="value">github, sentry</span></div>
+        <div class="settings-mock-row"><span class="label">Parlour MCP Port</span><span class="value">auto</span></div>
+        <div class="settings-mock-row"><span class="label">Custom CLIs</span><span class="value">+ Add custom CLI...</span></div>
+        <div class="settings-mock-row"><span class="label">Detected CLIs</span><span class="value" id="detected-clis">claude, gemini, opencode</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ PROJECT CONTEXT ════════════════════ -->
+<div class="panel" id="panel-context">
+  <div class="section-header">
+    <h2>Project Context Display</h2>
+    <p>Same derived data, three render targets. All from scanning projects/ on disk.</p>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:32px;">
+
+    <!-- Header Bar -->
+    <div>
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);margin-bottom:10px;">Header Bar</div>
+      <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="font-size:14px;font-weight:600;">Fix auth bug</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--blue);">grove</span>
+          <span style="color:var(--text-dim);">·</span>
+          <span>feature-auth</span>
+          <span style="color:var(--text-dim);">·</span>
+          <span style="color:var(--green);">PR #42</span>
+        </div>
+      </div>
+      <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <div style="font-size:14px;font-weight:600;">Update deps</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:8px;">
+          <span style="color:var(--blue);">grove</span>
+          <span style="color:var(--text-dim);">·</span>
+          <span>bump-deps</span>
+          <span style="color:var(--text-dim);">&nbsp;&nbsp;</span>
+          <span style="color:var(--blue);">api-server</span>
+          <span style="color:var(--text-dim);">·</span>
+          <span>bump-deps</span>
+        </div>
+      </div>
+      <div style="background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <div style="font-size:14px;font-weight:600;">Research caching</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text-dim);font-style:italic;">no project</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:32px;align-items:flex-start;">
+      <!-- Sidebar -->
+      <div>
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);margin-bottom:10px;">Sidebar</div>
+        <div class="sidebar-preview">
+          <div class="sidebar-preview-header">Chats</div>
+          <div class="sidebar-chat">
+            <div class="sidebar-chat-name"><span class="status active"></span> Fix auth bug</div>
+            <div class="sidebar-chat-meta">grove · feature-auth · <span class="pr">PR #42</span></div>
+          </div>
+          <div class="sidebar-chat">
+            <div class="sidebar-chat-name"><span class="status idle"></span> Research caching</div>
+            <div class="sidebar-chat-meta" style="color:var(--text-dim);font-family:var(--font)">(no project)</div>
+          </div>
+          <div class="sidebar-chat">
+            <div class="sidebar-chat-name"><span class="status active"></span> Update deps</div>
+            <div class="sidebar-chat-meta">grove · bump-deps</div>
+            <div class="sidebar-chat-meta">api-server · bump-deps</div>
+          </div>
+          <div class="sidebar-chat">
+            <div class="sidebar-chat-name"><span class="status done"></span> Fix typo in README</div>
+            <div class="sidebar-chat-meta">grove · fix-typo · <span class="pr">PR #38 merged</span></div>
+          </div>
+          <div class="sidebar-chat">
+            <div class="sidebar-chat-name"><span class="status error"></span> Migrate DB schema</div>
+            <div class="sidebar-chat-meta">api-server · migrate-v2</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Derivation -->
+      <div class="sidebar-explanation">
+        <h3>How it works</h3>
+        <div class="derive-step">
+          <div class="derive-num">1</div>
+          <div class="derive-content">
+            Scan <span class="cmd-inline">chats/{id}/projects/</span>
+            <div class="result">Directory names = project names</div>
+          </div>
+        </div>
+        <div class="derive-step">
+          <div class="derive-num">2</div>
+          <div class="derive-content">
+            Run <span class="cmd-inline">git branch --show-current</span> in each
+            <div class="result">Current branch for display</div>
+          </div>
+        </div>
+        <div class="derive-step">
+          <div class="derive-num">3</div>
+          <div class="derive-content">
+            Run <span class="cmd-inline">gh pr list --head {branch}</span>
+            <div class="result">PR number, status (cached 60s via GithubService)</div>
+          </div>
+        </div>
+        <div class="derive-step">
+          <div class="derive-num">4</div>
+          <div class="derive-content">
+            Push to renderer on timer
+            <div class="result">Same data → sidebar, header bar, chat tab. No stored state.</div>
+          </div>
+        </div>
+
+        <div class="principles" style="margin-top:32px">
+          <div class="principle">
+            <div class="principle-num">01</div>
+            <div class="principle-title">AGENTS.md is universal</div>
+            <div class="principle-desc">Works with any LLM CLI. Just markdown.</div>
+          </div>
+          <div class="principle">
+            <div class="principle-num">02</div>
+            <div class="principle-title">Filesystem is the state</div>
+            <div class="principle-desc">Derive everything from disk. No redundant records.</div>
+          </div>
+          <div class="principle">
+            <div class="principle-num">03</div>
+            <div class="principle-title">Chat dir owns everything</div>
+            <div class="principle-desc">Delete it, everything's gone.</div>
+          </div>
+          <div class="principle">
+            <div class="principle-num">04</div>
+            <div class="principle-title">LLMs handle branching</div>
+            <div class="principle-desc">No branch selection UI. LLM decides.</div>
+          </div>
+          <div class="principle">
+            <div class="principle-num">05</div>
+            <div class="principle-title">Projects are implicit</div>
+            <div class="principle-desc">Not a top-level concept. Just mentioned in conversation.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ── Tab switching ──
+const tabs = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.panel');
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    tabs.forEach(t => t.classList.remove('active'));
+    panels.forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Filesystem Tree ──
+const scenarios = {
+  single: {
+    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+      { name: 'bare/', cls: 'dir', expanded: true, comment: 'shared clone cache', children: [
+        { name: 'grove.git', cls: 'dir', comment: 'bare clone from GitHub' },
+      ]},
+      { name: 'chats/', cls: 'dir', expanded: true, children: [
+        { name: 'a1b2c3/', cls: 'dir', expanded: true, comment: 'chat: "Fix auth bug"', children: [
+          { name: 'AGENTS.md', cls: 'special', comment: 'LLM instructions + project paths' },
+          { name: '.claude/', cls: 'dir', children: [
+            { name: 'settings.local.json', cls: 'special', comment: 'permissions' },
+          ]},
+          { name: '.mcp.json', cls: 'special', comment: 'MCP server config' },
+          { name: 'skills/', cls: 'dir', children: [
+            { name: 'pr-review.md', cls: 'file' },
+            { name: 'code-audit.md', cls: 'file' },
+          ]},
+          { name: 'projects/', cls: 'dir', expanded: true, comment: 'local clones, owned by this chat', children: [
+            { name: 'grove/', cls: 'dir', comment: 'git clone --local bare/grove.git', children: [
+              { name: '.git/', cls: 'dir' },
+              { name: 'src/', cls: 'dir' },
+              { name: 'CLAUDE.md', cls: 'file' },
+              { name: 'package.json', cls: 'file' },
+            ]},
+          ]},
+        ]},
+      ]},
+    ]
+  },
+  multi: {
+    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+      { name: 'bare/', cls: 'dir', expanded: true, comment: 'shared clone cache', children: [
+        { name: 'grove.git', cls: 'dir' },
+        { name: 'api-server.git', cls: 'dir' },
+      ]},
+      { name: 'chats/', cls: 'dir', expanded: true, children: [
+        { name: 'd4e5f6/', cls: 'dir', expanded: true, comment: 'chat: "Update deps"', children: [
+          { name: 'AGENTS.md', cls: 'special' },
+          { name: '.claude/', cls: 'dir', children: [
+            { name: 'settings.local.json', cls: 'special' },
+          ]},
+          { name: '.mcp.json', cls: 'special' },
+          { name: 'projects/', cls: 'dir', expanded: true, comment: 'multiple projects in one chat', children: [
+            { name: 'grove/', cls: 'dir', comment: 'branch: bump-deps', children: [
+              { name: '.git/', cls: 'dir' },
+              { name: 'package.json', cls: 'file' },
+            ]},
+            { name: 'api-server/', cls: 'dir', comment: 'branch: bump-deps', children: [
+              { name: '.git/', cls: 'dir' },
+              { name: 'Gemfile', cls: 'file' },
+            ]},
+          ]},
+        ]},
+      ]},
+    ]
+  },
+  child: {
+    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+      { name: 'bare/', cls: 'dir', children: [
+        { name: 'grove.git', cls: 'dir' },
+      ]},
+      { name: 'chats/', cls: 'dir', expanded: true, children: [
+        { name: 'parent-1/', cls: 'dir', expanded: true, comment: 'chat: "Refactor auth"', children: [
+          { name: 'AGENTS.md', cls: 'special' },
+          { name: '.mcp.json', cls: 'special' },
+          { name: 'projects/', cls: 'dir', comment: 'parent works on grove too', children: [
+            { name: 'grove/', cls: 'dir', comment: 'branch: main' },
+          ]},
+        ]},
+        { name: 'child-1/', cls: 'dir', expanded: true, comment: 'dispatched: "Update login tests"', children: [
+          { name: 'AGENTS.md', cls: 'special', comment: 'includes parent context' },
+          { name: '.mcp.json', cls: 'special' },
+          { name: 'projects/', cls: 'dir', expanded: true, children: [
+            { name: 'grove/', cls: 'dir', comment: 'branch: update-login-tests (independent clone)' },
+          ]},
+        ]},
+        { name: 'child-2/', cls: 'dir', expanded: true, comment: 'dispatched: "Research OAuth libs"', children: [
+          { name: 'AGENTS.md', cls: 'special', comment: 'includes parent context' },
+          { name: '.mcp.json', cls: 'special' },
+          { name: 'projects/', cls: 'dir', comment: '(no project — research only)' },
+        ]},
+      ]},
+    ]
+  },
+  setup: {
+    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+      { name: 'bare/', cls: 'dir', children: [
+        { name: 'grove.git', cls: 'dir' },
+      ]},
+      { name: 'project-setup/', cls: 'dir', expanded: true, comment: 'learned by LLM, persisted', children: [
+        { name: 'grove/', cls: 'dir', expanded: true, children: [
+          { name: 'files/', cls: 'dir', expanded: true, comment: 'copied into every new clone', children: [
+            { name: '.env', cls: 'gitignored', comment: 'database URL, API keys' },
+            { name: 'config/', cls: 'dir', children: [
+              { name: 'user.json', cls: 'gitignored', comment: 'user-specific config' },
+            ]},
+          ]},
+        ]},
+      ]},
+      { name: 'chats/', cls: 'dir', expanded: true, children: [
+        { name: 'x7y8z9/', cls: 'dir', expanded: true, comment: 'chat: "Add feature X"', children: [
+          { name: 'AGENTS.md', cls: 'special' },
+          { name: '.mcp.json', cls: 'special' },
+          { name: 'projects/', cls: 'dir', expanded: true, children: [
+            { name: 'grove/', cls: 'dir', expanded: true, comment: 'clone + setup files applied', children: [
+              { name: '.git/', cls: 'dir' },
+              { name: '.env', cls: 'gitignored', comment: 'copied from project-setup' },
+              { name: 'config/', cls: 'dir', children: [
+                { name: 'user.json', cls: 'gitignored', comment: 'copied from project-setup' },
+              ]},
+              { name: 'src/', cls: 'dir' },
+            ]},
+          ]},
+        ]},
+      ]},
+    ]
+  },
+};
+
+function renderTree(node, container, depth = 0) {
+  const el = document.createElement('div');
+  el.className = 'tree-node' + (node.children ? ' expandable' : '');
+
+  const row = document.createElement('div');
+  row.className = 'tree-row';
+
+  const icon = document.createElement('span');
+  icon.className = 'tree-icon';
+  const isDir = node.children || node.cls === 'dir';
+  icon.textContent = isDir ? (node.expanded !== false && node.children ? '▾' : '▸') : ' ';
+
+  const name = document.createElement('span');
+  name.className = 'tree-name ' + (node.cls || 'file');
+  name.textContent = node.name;
+
+  row.appendChild(icon);
+  row.appendChild(name);
+
+  if (node.comment) {
+    const comment = document.createElement('span');
+    comment.className = 'tree-comment';
+    comment.textContent = '# ' + node.comment;
+    row.appendChild(comment);
+  }
+
+  el.appendChild(row);
+
+  if (node.children) {
+    const childrenEl = document.createElement('div');
+    childrenEl.className = 'tree-children' + (node.expanded === false ? ' collapsed' : '');
+    node.children.forEach(child => renderTree(child, childrenEl, depth + 1));
+    el.appendChild(childrenEl);
+
+    row.addEventListener('click', () => {
+      childrenEl.classList.toggle('collapsed');
+      icon.textContent = childrenEl.classList.contains('collapsed') ? '▸' : '▾';
+    });
+  }
+
+  container.appendChild(el);
+}
+
+function setScenario(key) {
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.toggle('active', b.dataset.scenario === key));
+  const tree = document.getElementById('filesystem-tree');
+  tree.innerHTML = '';
+  renderTree(scenarios[key], tree);
+}
+
+document.querySelectorAll('.scenario-btn').forEach(btn => {
+  btn.addEventListener('click', () => setScenario(btn.dataset.scenario));
+});
+setScenario('single');
+
+// ── Lifecycle ──
+const lifecycleSteps = [
+  {
+    label: 'Create',
+    icon: '+',
+    desc: 'Create chat directory with config',
+    detail: {
+      title: 'Create Chat',
+      commands: [
+        '# Create chat directory',
+        'mkdir -p ~/.parlour/chats/{id}/.claude',
+        '',
+        '# Write config files',
+        'write AGENTS.md        # MCP tool docs',
+        'write .claude/settings.local.json',
+        'write .mcp.json        # Parlour MCP endpoint',
+      ],
+      note: 'No project yet. Just a chat directory with config. Skills/ copied from defaults.',
+    },
+  },
+  {
+    label: 'Spawn PTY',
+    icon: '>',
+    desc: 'Start LLM process in chat dir',
+    detail: {
+      title: 'Spawn PTY',
+      commands: [
+        '# PTY starts in chat directory',
+        'cd ~/.parlour/chats/{id}/',
+        'exec claude    # or gemini, chatgpt, etc.',
+        '',
+        '# LLM reads AGENTS.md automatically',
+        '# Discovers MCP tools',
+        '# No --add-dir, no special flags',
+      ],
+      note: 'Universal. Works with any LLM CLI that reads markdown project files.',
+    },
+  },
+  {
+    label: 'Open Project',
+    icon: '~',
+    desc: 'LLM calls open_dir via MCP',
+    detail: {
+      title: 'Open Project (MCP: open_dir)',
+      commands: [
+        '# LLM calls open_dir({ path_or_url: "~/Projects/grove" })',
+        '',
+        '# Parlour does:',
+        'git clone --local ~/Projects/grove chats/{id}/projects/grove',
+        'git -C projects/grove remote set-url origin <github-url>',
+        '',
+        '# If project-setup/grove/ exists:',
+        'cp project-setup/grove/files/.env projects/grove/.env',
+        'cp project-setup/grove/files/config/user.json projects/grove/config/',
+        '',
+        '# Update AGENTS.md with project path',
+        '# Return { name: "grove", path: "./projects/grove", branch: "main" }',
+      ],
+      note: 'No PTY restart. No attach. LLM gets a path back, cds there.',
+    },
+  },
+  {
+    label: 'Work',
+    icon: '*',
+    desc: 'LLM works in the project clone',
+    detail: {
+      title: 'Work',
+      commands: [
+        '# LLM cds into the project',
+        'cd projects/grove',
+        '',
+        '# Normal git workflow',
+        'git checkout -b feature-auth',
+        '# ... edit files ...',
+        'git commit -m "Add auth module"',
+        'git push origin feature-auth',
+        'gh pr create --title "Add auth"',
+      ],
+      note: 'Branching, committing, PRs — all handled by the LLM naturally. No UI for branch selection.',
+    },
+  },
+  {
+    label: 'Resume',
+    icon: '↻',
+    desc: 'Re-spawn PTY, state persists',
+    detail: {
+      title: 'Resume',
+      commands: [
+        '# Chat dir persists with projects/ intact',
+        'ls ~/.parlour/chats/{id}/projects/grove/  # still there',
+        '',
+        '# Re-spawn PTY in same chat dir',
+        'cd ~/.parlour/chats/{id}/',
+        'exec claude --continue',
+        '',
+        '# LLM reads AGENTS.md, sees project paths',
+        '# Continues where it left off',
+      ],
+      note: 'Clones persist. AGENTS.md still has paths. Seamless resume.',
+    },
+  },
+  {
+    label: 'Delete',
+    icon: '×',
+    desc: 'rm -rf the chat dir. Done.',
+    detail: {
+      title: 'Delete Chat',
+      commands: [
+        '# One command. Everything gone.',
+        'rm -rf ~/.parlour/chats/{id}/',
+        '',
+        '# That\'s it.',
+        '# No worktree pruning.',
+        '# No symlink cleanup.',
+        '# No detach workflow.',
+        '# No orphaned state.',
+      ],
+      note: 'Bare clone cache in bare/ persists for future chats. Can be pruned separately.',
+    },
+  },
+];
+
+let currentStep = -1;
+const stepsEl = document.getElementById('lifecycle-steps');
+const detailEl = document.getElementById('lifecycle-detail');
+
+lifecycleSteps.forEach((step, i) => {
+  const el = document.createElement('div');
+  el.className = 'lifecycle-step';
+  el.innerHTML = `
+    <div class="step-dot" id="dot-${i}">${step.icon}</div>
+    <div class="step-label" id="label-${i}">${step.label}</div>
+    <div class="step-desc">${step.desc}</div>
+    ${i < lifecycleSteps.length - 1 ? `<div class="lifecycle-connector" id="conn-${i}"></div>` : ''}
+  `;
+  stepsEl.appendChild(el);
+});
+
+function updateLifecycle() {
+  lifecycleSteps.forEach((step, i) => {
+    const dot = document.getElementById('dot-' + i);
+    const label = document.getElementById('label-' + i);
+    const conn = document.getElementById('conn-' + i);
+
+    dot.className = 'step-dot';
+    label.className = 'step-label';
+    if (conn) conn.className = 'lifecycle-connector';
+
+    if (i < currentStep) {
+      dot.classList.add('reached');
+      label.classList.add('reached');
+      if (conn) conn.classList.add('reached');
+    } else if (i === currentStep) {
+      dot.classList.add('current');
+      label.classList.add('current');
+    }
+  });
+
+  document.getElementById('lc-prev').disabled = currentStep <= 0;
+  document.getElementById('lc-next').disabled = currentStep >= lifecycleSteps.length - 1;
+
+  if (currentStep >= 0) {
+    const step = lifecycleSteps[currentStep];
+    detailEl.innerHTML = `
+      <h3>${step.detail.title}</h3>
+      <div class="cmd">${step.detail.commands.map(l => l.startsWith('#') ? `<span class="comment">${l}</span>` : l).join('\n')}</div>
+      <p>${step.detail.note}</p>
+    `;
+  } else {
+    detailEl.innerHTML = '<p style="color:var(--text-muted)">Click "Next" to walk through the chat lifecycle.</p>';
+  }
+}
+
+document.getElementById('lc-next').addEventListener('click', () => {
+  if (currentStep < lifecycleSteps.length - 1) { currentStep++; updateLifecycle(); }
+});
+document.getElementById('lc-prev').addEventListener('click', () => {
+  if (currentStep > 0) { currentStep--; updateLifecycle(); }
+});
+document.getElementById('lc-reset').addEventListener('click', () => {
+  currentStep = -1; updateLifecycle();
+});
+updateLifecycle();
+
+// ── MCP Tools ──
+const toolGroups = [
+  {
+    name: 'Projects', color: 'var(--cyan)', tools: [
+      { name: 'open_dir', brief: 'Clone a project into this chat, or symlink a non-git directory',
+        sig: 'open_dir({ path_or_url, branch?, base? })', ret: '{ name, path, branch }',
+        notes: ['branch only → checkout existing', 'branch + base → new branch from base', 'Neither → default branch', 'Runs project-setup if configured', 'Updates AGENTS.md'] },
+      { name: 'list_projects', brief: 'Scan projects/ directory for this chat',
+        sig: 'list_projects()', ret: '[{ name, path, branch }]',
+        notes: ['Derived from filesystem + git', 'No registry needed'] },
+      { name: 'save_project_setup', brief: 'Persist setup files for future clones of this project',
+        sig: 'save_project_setup({ project, files })', ret: 'ok',
+        notes: ['Copies files from current clone to ~/.parlour/project-setup/{name}/files/', 'Future clones auto-get these files', 'LLM learns this, user never touches it'] },
+    ]
+  },
+  {
+    name: 'Dispatch & Orchestration', color: 'var(--purple)', tools: [
+      { name: 'dispatch', brief: 'Spawn a sub-agent chat with optional project',
+        sig: 'dispatch({ prompt, project?, branch?, llm? })', ret: '{ chatId, sessionId }',
+        notes: ['project creates a clone under the child chat', 'llm overrides which model runs'] },
+      { name: 'get_status', brief: 'Check status of a dispatched sub-agent',
+        sig: 'get_status({ session_id })', ret: '{ status, output }', notes: [] },
+      { name: 'list_children', brief: 'List child chats of a given chat',
+        sig: 'list_children({ chat_id })', ret: '[{ id, status }]', notes: [] },
+      { name: 'report_to_parent', brief: 'Send a message to the parent chat',
+        sig: 'report_to_parent({ chat_id, message })', ret: 'ok', notes: [] },
+      { name: 'get_parent_output', brief: 'Read the parent chat\'s terminal output',
+        sig: 'get_parent_output()', ret: 'string', notes: [] },
+    ]
+  },
+  {
+    name: 'Scheduling', color: 'var(--orange)', tools: [
+      { name: 'schedule_chat', brief: 'Schedule a recurring or one-time chat',
+        sig: 'schedule_chat({ prompt, name?, cron?, at?, project?, llm? })', ret: '{ id, name, trigger }', notes: [] },
+      { name: 'list_schedules', brief: 'List all scheduled chats',
+        sig: 'list_schedules()', ret: '[{ id, name, trigger, enabled }]', notes: [] },
+      { name: 'cancel_schedule', brief: 'Delete a scheduled chat',
+        sig: 'cancel_schedule({ id })', ret: 'ok', notes: [] },
+      { name: 'run_schedule', brief: 'Trigger an immediate run of a schedule',
+        sig: 'run_schedule({ id })', ret: 'ok', notes: [] },
+    ]
+  },
+];
+
+const toolGrid = document.getElementById('tool-grid');
+toolGroups.forEach(group => {
+  const el = document.createElement('div');
+  el.className = 'tool-group';
+  el.innerHTML = `
+    <div class="tool-group-header" style="color:${group.color}">
+      ${group.name}
+      <span class="badge">${group.tools.length} tools</span>
+    </div>
+  `;
+  group.tools.forEach(tool => {
+    const item = document.createElement('div');
+    item.className = 'tool-item';
+    item.innerHTML = `
+      <div class="tool-name">${tool.name}</div>
+      <div class="tool-brief">${tool.brief}</div>
+      <div class="tool-detail">
+        <div class="tool-sig">${tool.sig}</div>
+        <div class="tool-ret">→ ${tool.ret}</div>
+        ${tool.notes.length ? '<br>' + tool.notes.map(n => `<div class="tool-note">• ${n}</div>`).join('') : ''}
+      </div>
+    `;
+    item.addEventListener('click', () => item.classList.toggle('expanded'));
+    el.appendChild(item);
+  });
+  toolGrid.appendChild(el);
+});
+
+// ── Comparison ──
+const comparison = document.getElementById('comparison');
+comparison.innerHTML = `
+  <div class="comparison-col before">
+    <div class="comparison-header">
+      Removed
+      <span class="count">20+ items</span>
+    </div>
+    <div class="comparison-list">
+      <div class="comparison-category">Types</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">AttachInfo</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">PreLink</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">LinkRecord</div><div class="desc">Replaced by filesystem scan of projects/</div></div></div>
+
+      <div class="comparison-category">Methods</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">attachRepoToChat()</div><div class="desc">PTY-killing attach method</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">processAttach()</div></div></div>
+
+      <div class="comparison-category">MCP Tools</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">attach_directory</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">create_worktree</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">list_links</div></div></div>
+
+      <div class="comparison-category">UI</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">Repo picker dialog</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">Branch selector</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">"Attach" button</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">"Detach" context menu</div></div></div>
+
+      <div class="comparison-category">IPC Channels</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">CHAT_ATTACH_WORKTREE</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">CHAT_REGISTRY_ATTACH_REPO</div></div></div>
+
+      <div class="comparison-category">Filesystem</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">~/.parlour/worktrees/</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">chats/{id}/links/</div><div class="desc">Replaced by projects/</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">All symlink management</div></div></div>
+
+      <div class="comparison-category">Code</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">--add-dir flag</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">GitService worktree methods</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">Worktree cleanup logic</div></div></div>
+
+      <div class="comparison-category">Automations</div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">dirs[] on schedule config</div><div class="desc">Inherited folder attachments from calling chat</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">Directory inheritance logic</div><div class="desc">Reading symlinks from calling chat's links/</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">preLinks parameter</div><div class="desc">On chat creation from schedules</div></div></div>
+    </div>
+  </div>
+
+  <div class="comparison-col after">
+    <div class="comparison-header">
+      Replaces with
+      <span class="count">Simpler</span>
+    </div>
+    <div class="comparison-list">
+      <div class="comparison-category">Concepts (3 total)</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">Chat</div><div class="desc">A conversation. Owns its directory + clones.</div></div></div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">Project (implicit)</div><div class="desc">Mentioned in conversation. Not a UI concept.</div></div></div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">Schedule</div><div class="desc">Prompt + trigger. Same clone mechanics.</div></div></div>
+
+      <div class="comparison-category">New MCP Tools</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">open_dir</div><div class="desc">Replaces open_repo + create_worktree + attach_directory</div></div></div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">list_projects</div><div class="desc">Filesystem scan, replaces list_links</div></div></div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">save_project_setup</div><div class="desc">LLM-learned setup persistence</div></div></div>
+
+      <div class="comparison-category">Isolation</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">Local clones (git clone --local)</div><div class="desc">Hardlinks for objects, full isolation, no branch conflicts</div></div></div>
+
+      <div class="comparison-category">Config</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">AGENTS.md</div><div class="desc">Universal interface. Any LLM reads markdown.</div></div></div>
+
+      <div class="comparison-category">Sidebar</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">Filesystem-derived display</div><div class="desc">Scan projects/, git branch, gh pr list. Read-only.</div></div></div>
+
+      <div class="comparison-category">Cleanup</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">rm -rf chats/{id}/</div><div class="desc">Everything gone. No pruning, no cleanup.</div></div></div>
+
+      <div class="comparison-category">Project Setup</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">~/.parlour/project-setup/</div><div class="desc">LLM-learned, auto-applied to new clones</div></div></div>
+
+      <div class="comparison-category">Automations</div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">Simple schedule config</div><div class="desc">Just { prompt, trigger, project?, llm? }. Fresh clone each run.</div></div></div>
+    </div>
+  </div>
+`;
+
+// ── Workflows ──
+const workflows = [
+  {
+    num: 1, title: 'Hotfix a release', subtitle: 'Branch from deploy, create PR',
+    prompt: '"Fix the auth bug on the deploy branch, create a PR back to main"',
+    tags: ['open_dir'],
+    steps: [
+      { type: 'tool', text: 'open_dir({ path_or_url: "~/Projects/grove", branch: "hotfix-auth", base: "deploy" })' },
+      { type: 'comment', text: '→ clones into projects/grove, new branch hotfix-auth from deploy' },
+      { type: 'cmd', text: 'cd projects/grove' },
+      { type: 'cmd', text: '# fix bug, commit, push' },
+      { type: 'cmd', text: 'gh pr create --base deploy' },
+    ],
+    sidebar: 'grove · hotfix-auth · PR #53',
+  },
+  {
+    num: 2, title: 'Multi-repo feature', subtitle: 'Feature work across multiple repos',
+    prompt: '"Add the new auth flow — needs changes in both grove and api-server"',
+    tags: ['open_dir', 'dispatch'],
+    steps: [
+      { type: 'tool', text: 'open_dir({ path_or_url: "~/Projects/grove", branch: "feature-auth" })' },
+      { type: 'tool', text: 'open_dir({ path_or_url: "~/Projects/api-server", branch: "feature-auth" })' },
+      { type: 'comment', text: '→ projects/grove/ and projects/api-server/ in one chat' },
+      { type: 'comment', text: '→ LLM switches between them or dispatches children' },
+    ],
+    sidebar: 'grove · feature-auth\napi-server · feature-auth',
+  },
+  {
+    num: 3, title: 'Three directions', subtitle: 'Parallel approaches on same feature',
+    prompt: '"Try three approaches for the caching layer"',
+    tags: ['dispatch'],
+    steps: [
+      { type: 'tool', text: 'dispatch({ prompt: "Try Redis...", project: "grove", branch: "cache-redis" })' },
+      { type: 'tool', text: 'dispatch({ prompt: "Try in-memory...", project: "grove", branch: "cache-memory" })' },
+      { type: 'tool', text: 'dispatch({ prompt: "Try SQLite...", project: "grove", branch: "cache-sqlite" })' },
+      { type: 'comment', text: '→ each child gets its own clone — 3 branches, 0 conflicts' },
+      { type: 'comment', text: '→ this is why we use clones, not worktrees' },
+    ],
+    sidebar: 'child-1: grove · cache-redis\nchild-2: grove · cache-memory\nchild-3: grove · cache-sqlite',
+  },
+  {
+    num: 4, title: 'Research + local dir', subtitle: 'Non-git directory access',
+    prompt: '"Research caching strategies, reference my notes in ~/Obsidian/engineering"',
+    tags: ['open_dir'],
+    steps: [
+      { type: 'tool', text: 'open_dir({ path_or_url: "~/Obsidian/engineering" })' },
+      { type: 'comment', text: '→ non-git dir, symlinked into projects/engineering' },
+      { type: 'comment', text: '' },
+      { type: 'comment', text: 'later: "ok now implement it in grove"' },
+      { type: 'tool', text: 'open_dir({ path_or_url: "~/Projects/grove", branch: "caching" })' },
+    ],
+    sidebar: 'engineering (local)\ngrove · caching',
+  },
+  {
+    num: 5, title: 'Chat then schedule', subtitle: 'Conversation leads to recurring task',
+    prompt: '"Run this check every morning"',
+    tags: ['schedule'],
+    steps: [
+      { type: 'tool', text: 'schedule_chat({' },
+      { type: 'cmd', text: '  prompt: "Check grove for dependency updates...",' },
+      { type: 'cmd', text: '  cron: "0 9 * * *",' },
+      { type: 'cmd', text: '  project: "grove"' },
+      { type: 'tool', text: '})' },
+      { type: 'comment', text: '→ each run gets a fresh clone, no stale state' },
+    ],
+    sidebar: null,
+  },
+  {
+    num: 6, title: 'Scheduled prompts', subtitle: 'One-off and recurring, with or without project',
+    prompt: 'Direct scheduling — no chat conversation needed',
+    tags: ['schedule'],
+    steps: [
+      { type: 'comment', text: '# One-off' },
+      { type: 'tool', text: 'schedule_chat({ prompt: "Run tests...", at: "2026-02-15T02:00", project: "grove" })' },
+      { type: 'comment', text: '' },
+      { type: 'comment', text: '# Recurring' },
+      { type: 'tool', text: 'schedule_chat({ prompt: "Check stale PRs...", cron: "0 10 * * 1-5", project: "grove" })' },
+      { type: 'comment', text: '' },
+      { type: 'comment', text: '# No project (pure research)' },
+      { type: 'tool', text: 'schedule_chat({ prompt: "Summarize HN...", cron: "0 8 * * *" })' },
+    ],
+    sidebar: null,
+  },
+];
+
+const workflowGrid = document.getElementById('workflow-grid');
+workflows.forEach(wf => {
+  const card = document.createElement('div');
+  card.className = 'workflow-card';
+  const tagsHtml = wf.tags.map(t => `<span class="workflow-tag ${t}">${t}</span>`).join('');
+  const stepsHtml = wf.steps.map(s => {
+    if (s.type === 'tool') return `<span class="wf-tool">${s.text}</span>`;
+    if (s.type === 'comment') return `<span class="wf-comment">${s.text}</span>`;
+    return s.text;
+  }).join('\n');
+  const sidebarHtml = wf.sidebar ? `<div class="workflow-sidebar"><div class="ws-label">Sidebar shows</div>${wf.sidebar}</div>` : '';
+
+  card.innerHTML = `
+    <div class="workflow-card-header">
+      <div class="workflow-num">${wf.num}</div>
+      <div>
+        <div class="workflow-title">${wf.title}</div>
+        <div class="workflow-subtitle">${wf.subtitle}</div>
+      </div>
+    </div>
+    <div class="workflow-body">
+      <div class="workflow-prompt">${wf.prompt}</div>
+      <div class="workflow-steps">${stepsHtml}</div>
+      ${sidebarHtml}
+      <div class="workflow-tags">${tagsHtml}</div>
+    </div>
+  `;
+  card.addEventListener('click', () => card.classList.toggle('expanded'));
+  workflowGrid.appendChild(card);
+});
+
+// ── Multi-CLI ──
+const cliData = [
+  {
+    name: 'Claude Code', icon: 'C', color: 'var(--orange)',
+    status: 'detected', detect: 'which claude',
+    mcpFile: '.mcp.json', instrFile: 'CLAUDE.md', permFile: '.claude/settings.local.json',
+    mcpFormat: 'JSON — { mcpServers: { parlour: { type: "http", url } } }',
+    permFormat: '{ permissions: { allow: [...] } }',
+    instrNote: 'Symlink to AGENTS.md',
+    files: [
+      { text: 'chats/{id}/', cls: 'cf-dir' },
+      { text: '  AGENTS.md', cls: 'cf-file', comment: 'canonical' },
+      { text: '  CLAUDE.md', cls: 'cf-link', comment: '→ symlink to AGENTS.md' },
+      { text: '  .mcp.json', cls: 'cf-file', comment: 'Parlour MCP endpoint' },
+      { text: '  .claude/', cls: 'cf-dir' },
+      { text: '    settings.local.json', cls: 'cf-file', comment: 'auto-approve Parlour tools' },
+    ],
+  },
+  {
+    name: 'Gemini CLI', icon: 'G', color: 'var(--blue)',
+    status: 'detected', detect: 'which gemini',
+    mcpFile: '.gemini/settings.json', instrFile: 'GEMINI.md', permFile: '.gemini/settings.json (trust)',
+    mcpFormat: 'JSON — { mcpServers: { parlour: { httpUrl, trust: true } } }',
+    permFormat: 'trust: true per server',
+    instrNote: 'Symlink to AGENTS.md',
+    files: [
+      { text: 'chats/{id}/', cls: 'cf-dir' },
+      { text: '  AGENTS.md', cls: 'cf-file', comment: 'canonical' },
+      { text: '  GEMINI.md', cls: 'cf-link', comment: '→ symlink to AGENTS.md' },
+      { text: '  .gemini/', cls: 'cf-dir' },
+      { text: '    settings.json', cls: 'cf-file', comment: 'mcpServers + trust config' },
+    ],
+  },
+  {
+    name: 'Codex CLI', icon: 'X', color: 'var(--green)',
+    status: 'detected', detect: 'which codex',
+    mcpFile: '.codex/config.toml', instrFile: 'AGENTS.md', permFile: '.codex/config.toml (approval_policy)',
+    mcpFormat: 'TOML — [mcp] section with server entries',
+    permFormat: 'approval_policy = "auto-edit"',
+    instrNote: 'Reads AGENTS.md natively',
+    files: [
+      { text: 'chats/{id}/', cls: 'cf-dir' },
+      { text: '  AGENTS.md', cls: 'cf-file', comment: 'native — Codex reads this directly' },
+      { text: '  .codex/', cls: 'cf-dir' },
+      { text: '    config.toml', cls: 'cf-file', comment: '[mcp] + approval_policy' },
+    ],
+  },
+  {
+    name: 'OpenCode', icon: 'O', color: 'var(--purple)',
+    status: 'detected', detect: 'which opencode',
+    mcpFile: 'opencode.json', instrFile: 'AGENTS.md', permFile: 'opencode.json (permission)',
+    mcpFormat: 'JSON — { mcp: { parlour: { type: "remote", url } } }',
+    permFormat: '{ permission: { "*": "allow" } }',
+    instrNote: 'Reads AGENTS.md natively',
+    files: [
+      { text: 'chats/{id}/', cls: 'cf-dir' },
+      { text: '  AGENTS.md', cls: 'cf-file', comment: 'native — OpenCode reads this directly' },
+      { text: '  opencode.json', cls: 'cf-file', comment: 'mcp + permission config' },
+    ],
+  },
+  {
+    name: 'Cursor', icon: 'U', color: 'var(--cyan)',
+    status: 'detected', detect: 'IDE detection',
+    mcpFile: '.cursor/mcp.json', instrFile: '.cursor/rules/', permFile: '—',
+    mcpFormat: 'JSON — { mcpServers: { parlour: { url } } }',
+    permFormat: 'N/A (IDE-managed)',
+    instrNote: 'AGENTS.md content written to .cursor/rules/parlour.mdc',
+    files: [
+      { text: 'chats/{id}/', cls: 'cf-dir' },
+      { text: '  AGENTS.md', cls: 'cf-file', comment: 'canonical' },
+      { text: '  .cursor/', cls: 'cf-dir' },
+      { text: '    mcp.json', cls: 'cf-file', comment: 'Parlour MCP endpoint' },
+      { text: '    rules/', cls: 'cf-dir' },
+      { text: '      parlour.mdc', cls: 'cf-file', comment: 'generated from AGENTS.md' },
+    ],
+  },
+  {
+    name: 'Custom CLI', icon: '?', color: 'var(--text-muted)',
+    status: 'manual', detect: 'user-configured',
+    mcpFile: '{name}.mcp.json', instrFile: 'AGENTS.md', permFile: '—',
+    mcpFormat: 'User-defined template with {{parlour_mcp_url}} substitution',
+    permFormat: 'N/A (user manages)',
+    instrNote: 'AGENTS.md or user-specified instructionsFile',
+    files: [
+      { text: 'chats/{id}/', cls: 'cf-dir' },
+      { text: '  AGENTS.md', cls: 'cf-file', comment: 'canonical' },
+      { text: '  {name}.mcp.json', cls: 'cf-file', comment: 'from user template' },
+    ],
+  },
+];
+
+const cliGrid = document.getElementById('cli-grid');
+cliData.forEach(cli => {
+  const card = document.createElement('div');
+  card.className = 'cli-card';
+  const filesHtml = cli.files.map(f =>
+    `<span class="${f.cls}">${f.text}</span>${f.comment ? `  <span class="cf-comment"># ${f.comment}</span>` : ''}`
+  ).join('\n');
+
+  card.innerHTML = `
+    <div class="cli-card-header">
+      <div class="cli-card-left">
+        <div class="cli-icon" style="background:${cli.color}22;color:${cli.color};border:1px solid ${cli.color}44">${cli.icon}</div>
+        <div class="cli-name">${cli.name}</div>
+      </div>
+      <span class="cli-status ${cli.status}">${cli.status === 'detected' ? 'Auto-detected' : 'User-configured'}</span>
+    </div>
+    <div class="cli-body">
+      <div class="cli-row"><span class="cli-row-label">MCP config</span><span class="cli-row-value">${cli.mcpFile}</span></div>
+      <div class="cli-row"><span class="cli-row-label">Instructions</span><span class="cli-row-value">${cli.instrFile}</span></div>
+      <div class="cli-row"><span class="cli-row-label">Permissions</span><span class="cli-row-value">${cli.permFile}</span></div>
+      <div class="cli-row"><span class="cli-row-label">MCP format</span><span class="cli-row-value">${cli.mcpFormat}</span></div>
+      <div class="cli-row"><span class="cli-row-label">Instructions note</span><span class="cli-row-value">${cli.instrNote}</span></div>
+      <div class="cli-files">${filesHtml}</div>
+    </div>
+  `;
+  card.addEventListener('click', () => card.classList.toggle('expanded'));
+  cliGrid.appendChild(card);
+});
+</script>
+</body>
+</html>

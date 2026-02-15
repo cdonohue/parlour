@@ -1,0 +1,26 @@
+.wrapper {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+}
+
+.cursor {
+  display: inline-block;
+  width: 1px;
+  height: 1.1em;
+  background: var(--text-tertiary);
+  vertical-align: text-bottom;
+  animation: blink 530ms steps(1) infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.hidden {
+  visibility: hidden;
+}

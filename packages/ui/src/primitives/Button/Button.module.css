@@ -1,0 +1,101 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Sizes ── */
+
+.sm {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+}
+
+.md {
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-sm);
+}
+
+/* ── Variants ── */
+
+.ghost {
+  border: 1px solid var(--border-default);
+  background: none;
+  color: var(--text-secondary);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.primary {
+  border: none;
+  background: var(--accent-blue);
+  color: var(--text-inverse);
+}
+
+.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.danger {
+  border: 1px solid var(--accent-red);
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+}
+
+.danger:hover:not(:disabled) {
+  background: rgba(229, 72, 77, 0.2);
+}
+
+.outline {
+  border: 1px solid var(--accent-blue);
+  background: var(--accent-blue-glow);
+  color: var(--accent-blue);
+}
+
+.outline:hover:not(:disabled) {
+  background: rgba(110, 106, 222, 0.2);
+}
+
+.outlineDanger {
+  border: 1px solid var(--accent-red);
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+}
+
+.outlineDanger:hover:not(:disabled) {
+  background: rgba(229, 72, 77, 0.2);
+}
+
+.dashed {
+  border: 1px dashed var(--border-default);
+  background: none;
+  color: var(--text-tertiary);
+  font-weight: normal;
+}
+
+.dashed:hover:not(:disabled) {
+  border-color: var(--text-tertiary);
+  color: var(--text-secondary);
+}
+
+/* ── Full width modifier ── */
+
+.fullWidth {
+  width: 100%;
+}

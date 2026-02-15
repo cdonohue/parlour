@@ -1,0 +1,41 @@
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  padding: 0;
+  line-height: 1;
+}
+
+.sm {
+  width: 18px;
+  height: 18px;
+  font-size: var(--text-xs);
+}
+
+.md {
+  width: 22px;
+  height: 22px;
+  font-size: var(--text-md);
+}
+
+.default:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.danger:hover {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

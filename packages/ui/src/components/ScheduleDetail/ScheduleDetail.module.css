@@ -1,0 +1,42 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-xs);
+  font-family: var(--font-ui);
+  color: var(--text-tertiary);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.prompt {
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.trigger {
+  font-size: var(--text-sm);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+.footer {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
