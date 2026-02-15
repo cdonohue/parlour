@@ -299,24 +299,31 @@ export class ChatRegistry {
     const now = Date.now()
     const llmCommand = this.resolveLlmCommand(opts.llmCommand)
     const dirPath = await createChatDir(chatId)
-    await copySkillsToChat(dirPath)
 
     let projects: ProjectInfo[] = []
-    if (opts.project) {
-      const project = await this.cloneProject(dirPath, opts.project.pathOrUrl, opts.project.branch, opts.project.base)
-      projects = [project]
-    }
+    let ptyId: string
+    try {
+      await copySkillsToChat(dirPath)
 
-    await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
-    const mcpPort = await this.readMcpPort()
-    if (mcpPort) {
-      await generateCliConfig(dirPath, chatId, mcpPort, resolveCliType(llmCommand), llmCommand)
-    }
+      if (opts.project) {
+        const project = await this.cloneProject(dirPath, opts.project.pathOrUrl, opts.project.branch, opts.project.base)
+        projects = [project]
+      }
 
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId }
-    const webContents = this.getWebContents()
-    const command = this.buildShellCommand(llmCommand, [])
-    const ptyId = this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
+      await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
+      const mcpPort = await this.readMcpPort()
+      if (mcpPort) {
+        await generateCliConfig(dirPath, chatId, mcpPort, resolveCliType(llmCommand), llmCommand)
+      }
+
+      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId }
+      const webContents = this.getWebContents()
+      const command = this.buildShellCommand(llmCommand, [])
+      ptyId = this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
+    } catch (err) {
+      await rm(dirPath, { recursive: true, force: true }).catch(() => {})
+      throw err
+    }
 
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
@@ -425,6 +432,11 @@ export class ChatRegistry {
   async resumeChat(chatId: string): Promise<void> {
     const chat = this.getChat(chatId)
     if (!chat || chat.ptyId || !chat.dirPath) return
+
+    if (!existsSync(chat.dirPath)) {
+      this.updateChat(chatId, { status: 'error' })
+      return
+    }
 
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
     const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId }
@@ -548,6 +560,13 @@ export class ChatRegistry {
   }
 
   reconcilePtys(): void {
+    const orphaned = this.chats.filter((c) => !existsSync(c.dirPath))
+    if (orphaned.length > 0) {
+      console.log(`[ChatRegistry] Pruning ${orphaned.length} chats with missing dirs`)
+      const orphanIds = new Set(orphaned.map((c) => c.id))
+      this.chats = this.chats.filter((c) => !orphanIds.has(c.id))
+    }
+
     const livePtyIds = new Set(this.ptyManager.list())
 
     for (const chat of this.chats) {
@@ -555,11 +574,10 @@ export class ChatRegistry {
         this.registerExitHandler(chat.id, chat.ptyId)
         this.registerActivityHandler(chat.id, chat.ptyId)
       } else if (chat.ptyId && !livePtyIds.has(chat.ptyId)) {
-        const wasRunning = chat.status === 'active' || chat.status === 'idle'
         chat.ptyId = null
-        chat.status = wasRunning ? 'error' : 'done'
+        chat.status = 'done'
       } else if (!chat.ptyId && (chat.status === 'active' || chat.status === 'idle')) {
-        chat.status = 'error'
+        chat.status = 'done'
       }
 
       if (chat.projects?.length) {
@@ -568,7 +586,7 @@ export class ChatRegistry {
     }
 
     this.startPrPoller()
-    this.schedulePersist()
+    this.persistSync()
   }
 
   // ── Internal helpers ──
@@ -734,13 +752,17 @@ export class ChatRegistry {
       chat.status = 'done'
     }
 
+    this.persistSync()
+  }
+
+  private persistSync(): void {
     try {
       const tmp = this.registryFile + '.tmp'
       mkdirSync(join(this.registryFile, '..'), { recursive: true })
       writeFileSync(tmp, JSON.stringify({ chats: this.chats }, null, 2), 'utf-8')
       renameSync(tmp, this.registryFile)
     } catch (err) {
-      console.error('Failed to flush chat registry:', err)
+      console.error('Failed to persist chat registry:', err)
     }
   }
 
