@@ -1,4 +1,4 @@
-import { ipcMain, dialog, app, BrowserWindow } from 'electron'
+import { ipcMain, dialog, app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { homedir } from 'os'
 import { mkdir, rm, readFile } from 'fs/promises'
@@ -237,6 +237,11 @@ export function registerIpcHandlers(sharedPtyManager: PtyManager, sharedTaskSche
       const msg = err instanceof Error ? err.message : String(err)
       return { success: false, output: msg }
     }
+  })
+
+  // ── Shell: open external URL ──
+  ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
+    shell.openExternal(url)
   })
 
   // ── Schedule handlers ──
