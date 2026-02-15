@@ -22,12 +22,19 @@ export function useShortcuts() {
     useAppStore.getState().openNewChatDialog({ mode: 'new' })
   })
 
-  useHotkey(kb['open-in-editor'], () => {
+  useHotkey(kb['open-in-editor'], async () => {
     const s = useAppStore.getState()
     const chat = s.chats.find((c) => c.id === s.activeChatId)
-    if (chat?.dirPath && s.settings.lastOpenIn) {
-      window.api.app.openIn(s.settings.lastOpenIn, chat.dirPath)
+    if (!chat?.dirPath) return
+    let opener = s.settings.lastOpenIn
+    if (!opener) {
+      const openers = await window.api.app.discoverOpeners()
+      if (openers.length > 0) {
+        opener = openers[0].id
+        s.updateSettings({ lastOpenIn: opener })
+      }
     }
+    if (opener) window.api.app.openIn(opener, chat.dirPath)
   })
 
   useHotkey(kb['settings'], () => {

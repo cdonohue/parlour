@@ -86,6 +86,7 @@ interface SettingsPanelProps {
   installedClis?: string[]
   llmDefaults?: Record<string, string>
   onSaveLlmDefaults?: (cli: string, content: string) => void
+  openers?: Array<{ id: string; name: string }>
 }
 
 export function SettingsPanel({
@@ -97,6 +98,7 @@ export function SettingsPanel({
   installedClis,
   llmDefaults,
   onSaveLlmDefaults,
+  openers,
 }: SettingsPanelProps) {
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     onUpdateSettings({ [key]: value })
@@ -199,6 +201,16 @@ export function SettingsPanel({
                 placeholder="~/Projects, ~/work"
               />
             </FormRow>
+
+            {openers && openers.length > 0 && (
+              <FormRow label="Open in" description="Editor for opening projects">
+                <Select
+                  value={settings.lastOpenIn}
+                  onChange={(v) => update('lastOpenIn', v)}
+                  options={openers.map((o) => ({ value: o.id, label: o.name }))}
+                />
+              </FormRow>
+            )}
           </div>
 
           <div className={styles.section}>

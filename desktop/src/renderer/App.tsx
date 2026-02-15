@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react'
+import { useEffect, useMemo, useCallback, useState } from 'react'
 import { Allotment } from 'allotment'
 import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import 'allotment/dist/style.css'
@@ -33,6 +33,11 @@ export function App() {
     createChildChat,
     resumeChat,
   } = useAppStore()
+
+  const [openers, setOpeners] = useState<Array<{ id: string; name: string }>>([])
+  useEffect(() => {
+    window.api.app.discoverOpeners().then(setOpeners).catch(() => {})
+  }, [])
 
   const chat = chats.find((c) => c.id === activeChatId)
 
@@ -90,7 +95,10 @@ export function App() {
                       subtitle={resolveLlmCommand(settings, chat.llmCommand)}
                       breadcrumbs={chatBreadcrumbs}
                       projects={chat.projects}
+                      dirPath={chat.dirPath}
+                      openers={openers}
                       onOpenUrl={(url) => window.open(url)}
+                      onOpenIn={(openerId, path) => window.api.app.openIn(openerId, path)}
                     />
                     <div className={styles.chatTerminalWrapper}>
                       <TerminalPanel key={chat.id} ptyId={chat.ptyId} active={true} />

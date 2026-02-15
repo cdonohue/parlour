@@ -6,6 +6,7 @@ interface TooltipProps {
   label: string
   shortcut?: string
   position?: 'top' | 'bottom'
+  onlyWhenOverflowing?: boolean
   children: React.ReactElement<Record<string, unknown>>
 }
 
@@ -14,7 +15,7 @@ const EDGE_PAD = 8
 const GAP = 6
 const TOOLTIP_HEIGHT_EST = 28
 
-export function Tooltip({ label, shortcut, position = 'top', children }: TooltipProps) {
+export function Tooltip({ label, shortcut, position = 'top', onlyWhenOverflowing, children }: TooltipProps) {
   const [visible, setVisible] = useState(false)
   const [coords, setCoords] = useState({ x: 0, y: 0 })
   const [resolvedPos, setResolvedPos] = useState(position)
@@ -26,6 +27,7 @@ export function Tooltip({ label, shortcut, position = 'top', children }: Tooltip
     clearTimeout(showTimer.current)
     showTimer.current = setTimeout(() => {
       if (!elRef.current) return
+      if (onlyWhenOverflowing && elRef.current.scrollWidth <= elRef.current.clientWidth) return
       const rect = elRef.current.getBoundingClientRect()
       if (rect.width === 0 && rect.height === 0) return
 
@@ -43,7 +45,7 @@ export function Tooltip({ label, shortcut, position = 'top', children }: Tooltip
       })
       setVisible(true)
     }, SHOW_DELAY)
-  }, [position])
+  }, [position, onlyWhenOverflowing])
 
   const hide = useCallback(() => {
     clearTimeout(showTimer.current)

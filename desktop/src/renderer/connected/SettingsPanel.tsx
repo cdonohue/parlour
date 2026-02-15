@@ -15,9 +15,11 @@ export function SettingsPanel() {
   const { settings, updateSettings, toggleSettings } = useAppStore()
   const [installedClis, setInstalledClis] = useState<string[]>([])
   const [llmDefaults, setLlmDefaults] = useState<Record<string, string>>({})
+  const [openers, setOpeners] = useState<Array<{ id: string; name: string }>>([])
 
   useEffect(() => {
     window.api.cli.detect().then(setInstalledClis).catch(() => {})
+    window.api.app.discoverOpeners().then(setOpeners).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -65,6 +67,7 @@ export function SettingsPanel() {
       installedClis={installedClis}
       llmDefaults={llmDefaults}
       onSaveLlmDefaults={onSaveLlmDefaults}
+      openers={openers}
     />
   )
 }
