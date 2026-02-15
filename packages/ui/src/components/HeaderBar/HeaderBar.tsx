@@ -85,7 +85,7 @@ export function HeaderBar({ title, subtitle, breadcrumbs, projects, dirPath, ope
               {p.prInfo && (
                 <Tooltip label={p.prInfo.url} position="bottom">
                   <span
-                    className={styles.prPill}
+                    className={`${styles.prPill} ${styles[`pr_${p.prInfo.state}`] || ''}`}
                     onClick={() => onOpenUrl?.(p.prInfo!.url)}
                   >
                     <GitPullRequest size={11} />

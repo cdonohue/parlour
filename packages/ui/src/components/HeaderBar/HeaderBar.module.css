@@ -142,12 +142,32 @@
 
 .prPill svg {
   flex-shrink: 0;
-  color: var(--text-ghost);
 }
 
 .prPill:hover {
   border-color: var(--border-default);
 }
+
+.pr_open {
+  color: var(--accent-green-muted);
+  border-color: color-mix(in srgb, var(--accent-green) 20%, transparent);
+}
+
+.pr_open svg { color: var(--accent-green-muted); }
+
+.pr_merged {
+  color: var(--accent-purple);
+  border-color: color-mix(in srgb, var(--accent-purple) 20%, transparent);
+}
+
+.pr_merged svg { color: var(--accent-purple); }
+
+.pr_closed {
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red) 20%, transparent);
+}
+
+.pr_closed svg { color: var(--accent-red); }
 
 
 .attachPill {
