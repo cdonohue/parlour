@@ -145,6 +145,8 @@ const api = {
   shell: {
     runCommand: (command: string, cwd: string) =>
       ipcRenderer.invoke(IPC.SHELL_RUN_COMMAND, command, cwd) as Promise<{ success: boolean; output: string }>,
+    openExternal: (url: string) =>
+      ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   },
 
   mcp: {

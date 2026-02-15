@@ -15,9 +15,10 @@ interface TerminalPanelProps {
   resizePty: (ptyId: string, cols: number, rows: number) => void
   subscribePtyData: (ptyId: string, cb: (data: string) => void) => () => void
   getBuffer?: (ptyId: string) => Promise<string>
+  onLinkClick?: (url: string) => void
 }
 
-export function TerminalPanel({ ptyId, active, fontSize, fontFamily, writePty, resizePty, subscribePtyData, getBuffer }: TerminalPanelProps) {
+export function TerminalPanel({ ptyId, active, fontSize, fontFamily, writePty, resizePty, subscribePtyData, getBuffer, onLinkClick }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termDivRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -75,7 +76,10 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, writePty, r
 
         const fitAddon = new FitAddon()
         term.loadAddon(fitAddon)
-        term.loadAddon(new WebLinksAddon())
+        term.loadAddon(new WebLinksAddon((_e, uri) => {
+          if (onLinkClick) onLinkClick(uri)
+          else window.open(uri)
+        }))
 
         term.open(termDiv)
 

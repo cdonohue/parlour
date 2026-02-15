@@ -44,6 +44,7 @@ export function TerminalPanel({ ptyId, active }: Props) {
       resizePty={window.api.pty.resize}
       subscribePtyData={window.api.pty.onData}
       getBuffer={window.api.pty.getBuffer}
+      onLinkClick={window.api.shell.openExternal}
     />
   )
 }

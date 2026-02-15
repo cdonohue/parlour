@@ -52,6 +52,7 @@ export const IPC = {
 
   // Shell operations
   SHELL_RUN_COMMAND: 'shell:run-command',
+  SHELL_OPEN_EXTERNAL: 'shell:open-external',
 
   // MCP orchestration
   MCP_GET_PORT: 'mcp:get-port',
