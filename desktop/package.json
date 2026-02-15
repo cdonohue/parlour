@@ -9,9 +9,9 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "test": "bunx playwright test --project=electron",
-    "rebuild": "bunx electron-rebuild",
+    "rebuild": "bunx @electron/rebuild",
     "dist": "electron-vite build && electron-builder --mac --arm64",
-    "postinstall": "bash scripts/patch-electron-dev.sh"
+    "postinstall": "bunx @electron/rebuild && bash scripts/patch-electron-dev.sh"
   },
   "keywords": [],
   "author": "",

@@ -319,7 +319,7 @@ export class ChatRegistry {
       const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId }
       const webContents = this.getWebContents()
       const command = this.buildShellCommand(llmCommand, [])
-      ptyId = this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
+      ptyId = await this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
     } catch (err) {
       await rm(dirPath, { recursive: true, force: true }).catch(() => {})
       throw err
@@ -396,7 +396,7 @@ export class ChatRegistry {
     const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId }
     const webContents = this.getWebContents()
     const command = this.buildShellCommand(llmCommand, [])
-    const ptyId = this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
+    const ptyId = await this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
 
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
@@ -445,7 +445,7 @@ export class ChatRegistry {
 
     const webContents = this.getWebContents()
     const command = this.buildShellCommand(llmCommand, resumeArgs)
-    const ptyId = this.ptyManager.create(chat.dirPath, webContents, undefined, command, undefined, env)
+    const ptyId = await this.ptyManager.create(chat.dirPath, webContents, undefined, command, undefined, env)
 
     let savedBuf = this.savedBuffers.get(chatId)
     if (savedBuf) {
@@ -643,7 +643,9 @@ export class ChatRegistry {
       if (buf) {
         this.savedBuffers.set(chatId, buf)
         if (chat.dirPath) {
-          writeFile(join(chat.dirPath, 'terminal-buffer'), buf, 'utf-8').catch(() => {})
+          mkdir(chat.dirPath, { recursive: true }).then(() =>
+            writeFile(join(chat.dirPath, 'terminal-buffer'), buf, 'utf-8'),
+          ).catch(() => {})
         }
       }
 
@@ -746,7 +748,10 @@ export class ChatRegistry {
       if (!chat.ptyId) continue
       const buf = this.ptyManager.getBuffer(chat.ptyId)
       if (buf && chat.dirPath) {
-        try { writeFileSync(join(chat.dirPath, 'terminal-buffer'), buf, 'utf-8') } catch {}
+        try {
+          mkdirSync(chat.dirPath, { recursive: true })
+          writeFileSync(join(chat.dirPath, 'terminal-buffer'), buf, 'utf-8')
+        } catch {}
       }
       chat.ptyId = null
       chat.status = 'done'
