@@ -1,15 +1,13 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
-import { Settings, Plus, Pin, PinOff, ListTodo, Wand2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { Settings, Plus, Pin, PinOff, ListTodo, Wand2 } from 'lucide-react'
 import type { Chat, Schedule, ConfirmDialogState, Keybindings } from '../../types'
-import { relativeTime } from '../../utils/relative-time'
 import { formatHotkey } from '../../utils/format-hotkey'
 import { HStack, VStack } from '../../primitives/Stack/Stack'
 import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
-import { Tooltip } from '../Tooltip/Tooltip'
 import { SidebarAction } from '../SidebarAction/SidebarAction'
-import { TypewriterText } from '../TypewriterText/TypewriterText'
+import { ChatItem } from '../ChatItem/ChatItem'
 import styles from './Sidebar.module.css'
 
 interface SidebarProps {
@@ -115,56 +113,23 @@ export function Sidebar({
   )
 
   const renderChat = useCallback((chat: Chat, depth: number) => {
-    const isActive = chat.id === activeChatId
-    const isUnread = unreadChatIds.has(chat.id)
     const children = childMap.get(chat.id) ?? []
-    const hasChildren = children.length > 0
-    const canAddChild = depth < maxChatDepth && !!onNewChildChat
-    const isRoot = depth === 0
-
-    const depthClass = depth > 0 ? styles.nestedChat : ''
-    const menuOpen = menuState?.chatId === chat.id
 
     return (
-      <motion.div
+      <ChatItem
         key={chat.id}
-        initial={{ height: 0, opacity: 0 }}
-        animate={{ height: 'auto', opacity: 1 }}
-        exit={{ height: 0, opacity: 0 }}
-        transition={{ height: { duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }, opacity: { duration: 0.1 } }}
-        style={{ overflow: 'hidden' }}
+        chat={chat}
+        isActive={chat.id === activeChatId}
+        isUnread={unreadChatIds.has(chat.id)}
+        depth={depth}
+        menuOpen={menuState?.chatId === chat.id}
+        defaultLlmCommand={defaultLlmCommand}
+        onSelect={() => onSelectChat(chat.id)}
+        onDelete={(e) => handleDeleteChat(e, chat)}
+        onOpenMenu={(anchor) => openMenu(chat.id, anchor)}
+        onCloseMenu={closeMenu}
       >
-        <HStack
-          align="flex-start"
-          gap={3}
-          className={`${styles.chatItem} ${depthClass} ${isActive ? styles.active : ''} ${isUnread ? styles.unread : ''} ${menuOpen ? styles.menuOpen : ''}`}
-          style={{ cursor: 'pointer' }}
-          onClick={() => onSelectChat(chat.id)}
-        >
-          <VStack flex="1" gap={2} className={styles.chatContent}>
-            <TypewriterText text={chat.name} className={styles.chatName} speed={30} />
-            <HStack gap={4} align="center" className={styles.chatMeta}>
-              <span className={`${styles.statusDot} ${styles[chat.status]}`} />
-              <span className={styles.llmBadge}>{chat.llmCommand || defaultLlmCommand}</span>
-              {isRoot && <span>{relativeTime(chat.lastActiveAt)}</span>}
-            </HStack>
-          </VStack>
-          <HStack gap={1} className={styles.chatActions}>
-            <button
-              className={styles.moreBtn}
-              onClick={(e) => { e.stopPropagation(); menuState?.chatId === chat.id ? closeMenu() : openMenu(chat.id, e.currentTarget) }}
-            >
-              <MoreHorizontal size={13} />
-            </button>
-            <button
-              className={styles.deleteBtn}
-              onClick={(e) => { e.stopPropagation(); handleDeleteChat(e, chat) }}
-            >
-              <Trash2 size={11} />
-            </button>
-          </HStack>
-        </HStack>
-        {hasChildren && (
+        {children.length > 0 && (
           <VStack gap={2} className={styles.childrenGroup} style={{ '--nest-depth': depth + 1 } as React.CSSProperties}>
             <AnimatePresence initial={false}>
               {children
@@ -173,9 +138,9 @@ export function Sidebar({
             </AnimatePresence>
           </VStack>
         )}
-      </motion.div>
+      </ChatItem>
     )
-  }, [activeChatId, unreadChatIds, childMap, maxChatDepth, onNewChildChat, onRetitleChat, onSelectChat, onPinChat, onUnpinChat, handleDeleteChat, menuState, closeMenu, openMenu])
+  }, [activeChatId, unreadChatIds, childMap, defaultLlmCommand, onSelectChat, handleDeleteChat, menuState, closeMenu, openMenu])
 
   return (
     <VStack className={styles.sidebar} gap={3}>
