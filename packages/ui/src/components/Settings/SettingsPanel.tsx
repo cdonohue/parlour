@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import type { Settings, HotkeyAction, Keybindings } from '../../types'
+import type { Settings, HotkeyAction, Keybindings, ThemeMode } from '../../types'
 import { DEFAULT_KEYBINDINGS, HOTKEY_LABELS } from '../../types'
 import { formatHotkey } from '../../utils/format-hotkey'
 import { FormRow, Toggle, TextInput, NumberStepper, Select } from '../../primitives'
@@ -155,6 +155,18 @@ export function SettingsPanel({
         <div className={styles.content}>
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Appearance</div>
+
+            <FormRow label="Theme" description="App color scheme">
+              <Select
+                value={settings.theme}
+                onChange={(v) => update('theme', v as ThemeMode)}
+                options={[
+                  { value: 'system', label: 'System' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+              />
+            </FormRow>
 
             <FormRow label="Terminal font" description="Monospace font for terminals">
               <Select
