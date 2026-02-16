@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
+import type { ITheme } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -11,6 +12,7 @@ interface TerminalPanelProps {
   active: boolean
   fontSize: number
   fontFamily?: string
+  terminalTheme?: ITheme
   writePty: (ptyId: string, data: string) => void
   resizePty: (ptyId: string, cols: number, rows: number) => void
   subscribePtyData: (ptyId: string, cb: (data: string) => void) => () => void
@@ -18,7 +20,7 @@ interface TerminalPanelProps {
   onLinkClick?: (url: string) => void
 }
 
-export function TerminalPanel({ ptyId, active, fontSize, fontFamily, writePty, resizePty, subscribePtyData, getBuffer, onLinkClick }: TerminalPanelProps) {
+export function TerminalPanel({ ptyId, active, fontSize, fontFamily, terminalTheme, writePty, resizePty, subscribePtyData, getBuffer, onLinkClick }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const termDivRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -50,7 +52,7 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, writePty, r
           cursorWidth: 2,
           scrollback: 10000,
           allowTransparency: true,
-          theme: {
+          theme: terminalTheme ?? {
             background: '#0a0a0b',
             foreground: '#ededef',
             cursor: '#ededef',
@@ -161,6 +163,11 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, writePty, r
     term.options.fontSize = fontSize
     fitAddonRef.current?.fit()
   }, [fontSize])
+
+  useEffect(() => {
+    if (!termRef.current || !terminalTheme) return
+    termRef.current.options.theme = terminalTheme
+  }, [terminalTheme])
 
   useEffect(() => {
     if (!active || !termRef.current) return
