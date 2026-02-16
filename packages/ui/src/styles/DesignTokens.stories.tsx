@@ -37,42 +37,42 @@ const SPACING = {
 }
 
 const SURFACES = [
-  { token: '--surface-0', value: '#0a0a0b', label: 'App background' },
-  { token: '--surface-1', value: '#111113', label: 'Panel / card' },
-  { token: '--surface-2', value: '#191a1c', label: 'Raised element' },
-  { token: '--surface-3', value: '#1e1f21', label: 'Active / hover' },
-  { token: '--surface-4', value: '#27282b', label: 'Elevated' },
+  { token: '--surface-0', label: 'App background' },
+  { token: '--surface-1', label: 'Panel / card' },
+  { token: '--surface-2', label: 'Raised element' },
+  { token: '--surface-3', label: 'Active / hover' },
+  { token: '--surface-4', label: 'Elevated' },
 ]
 
 const BORDERS = [
-  { token: '--border-subtle', value: '#1a1a1e', label: 'Dividers, panel edges' },
-  { token: '--border-default', value: '#27272b', label: 'Input borders' },
-  { token: '--border-strong', value: '#37373f', label: 'Emphasis, hover' },
-  { token: '--border-accent', value: '#6e6ade', label: 'Focus ring, active' },
+  { token: '--border-subtle', label: 'Dividers, panel edges' },
+  { token: '--border-default', label: 'Input borders' },
+  { token: '--border-strong', label: 'Emphasis, hover' },
+  { token: '--border-accent', label: 'Focus ring, active' },
 ]
 
 const TEXT_COLORS = [
-  { token: '--text-primary', value: '#ededef' },
-  { token: '--text-secondary', value: '#e3e3e6' },
-  { token: '--text-tertiary', value: '#94949c' },
-  { token: '--text-ghost', value: '#3a3a42' },
-  { token: '--text-inverse', value: '#0a0a0b' },
+  '--text-primary',
+  '--text-secondary',
+  '--text-tertiary',
+  '--text-ghost',
+  '--text-inverse',
 ]
 
 const ACCENTS = [
-  { token: '--accent-blue', value: '#6e6ade' },
-  { token: '--accent-blue-dim', value: '#3d3a7a' },
-  { token: '--accent-blue-glow', value: 'rgba(110,106,222,0.08)' },
-  { token: '--accent-cyan', value: '#5eb0ef' },
-  { token: '--accent-purple', value: '#8b7ec8' },
-  { token: '--accent-green', value: '#3dd68c' },
-  { token: '--accent-green-muted', value: '#2ea571' },
-  { token: '--accent-green-dim', value: 'rgba(61,214,140,0.10)' },
-  { token: '--accent-red', value: '#e5484d' },
-  { token: '--accent-red-dim', value: 'rgba(229,72,77,0.10)' },
-  { token: '--accent-orange', value: '#d9834f' },
-  { token: '--accent-orange-dim', value: 'rgba(217,131,79,0.10)' },
-  { token: '--accent-yellow', value: '#d4a84b' },
+  '--accent-blue',
+  '--accent-blue-dim',
+  '--accent-blue-glow',
+  '--accent-cyan',
+  '--accent-purple',
+  '--accent-green',
+  '--accent-green-muted',
+  '--accent-green-dim',
+  '--accent-red',
+  '--accent-red-dim',
+  '--accent-orange',
+  '--accent-orange-dim',
+  '--accent-yellow',
 ]
 
 const RADII = [
@@ -84,10 +84,10 @@ const RADII = [
 ]
 
 const SHADOWS = [
-  { token: '--shadow-sm', value: '0 1px 2px rgba(0,0,0,0.2), 0 1px 3px rgba(0,0,0,0.15)' },
-  { token: '--shadow-md', value: '0 2px 4px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.2)' },
-  { token: '--shadow-lg', value: '0 4px 8px rgba(0,0,0,0.2), 0 8px 24px rgba(0,0,0,0.3)' },
-  { token: '--shadow-inset', value: 'inset 0 1px 0 rgba(255,255,255,0.03)' },
+  '--shadow-sm',
+  '--shadow-md',
+  '--shadow-lg',
+  '--shadow-inset',
 ]
 
 const container: React.CSSProperties = {
@@ -235,23 +235,21 @@ export const Colors: StoryObj = {
 
       <div style={sectionLabel}>Surfaces</div>
       <div style={{ display: 'flex', gap: 0, borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 'var(--space-12)' }}>
-        {SURFACES.map(({ token, value, label }) => (
-          <div key={token} style={{ flex: 1, background: value, padding: 'var(--space-12) var(--space-6) var(--space-6)', minHeight: 80 }}>
+        {SURFACES.map(({ token, label }) => (
+          <div key={token} style={{ flex: 1, background: `var(${token})`, padding: 'var(--space-12) var(--space-6) var(--space-6)', minHeight: 80 }}>
             <div style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
               {token}
             </div>
-            <div style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-ghost)' }}>{value}</div>
             <div style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-ui)', color: 'var(--text-tertiary)', marginTop: 'var(--space-4)' }}>{label}</div>
           </div>
         ))}
       </div>
 
       <div style={sectionLabel}>Borders</div>
-      {BORDERS.map(({ token, value, label }) => (
+      {BORDERS.map(({ token, label }) => (
         <div key={token} style={row}>
           <span style={tokenCol}>{token}</span>
-          <span style={valueCol}>{value}</span>
-          <div style={{ width: 80, height: 24, borderRadius: 'var(--radius-md)', border: `2px solid ${value}`, background: 'var(--surface-1)' }} />
+          <div style={{ width: 80, height: 24, borderRadius: 'var(--radius-md)', border: `2px solid var(${token})`, background: 'var(--surface-1)' }} />
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-ghost)' }}>{label}</span>
         </div>
       ))}
@@ -259,11 +257,10 @@ export const Colors: StoryObj = {
       <div style={{ ...divider, marginTop: 'var(--space-16)' }} />
 
       <div style={sectionLabel}>Text</div>
-      {TEXT_COLORS.map(({ token, value }) => (
+      {TEXT_COLORS.map((token) => (
         <div key={token} style={row}>
           <span style={tokenCol}>{token}</span>
-          <span style={valueCol}>{value}</span>
-          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-base)', color: value, fontWeight: 'var(--weight-medium)' }}>
+          <span style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--text-base)', color: `var(${token})`, fontWeight: 'var(--weight-medium)' }}>
             Sample text
           </span>
         </div>
@@ -282,10 +279,10 @@ export const Accents: StoryObj = {
       </div>
 
       <div style={sectionLabel}>Palette</div>
-      {ACCENTS.map(({ token, value }) => (
+      {ACCENTS.map((token) => (
         <div key={token} style={row}>
           <span style={tokenCol}>{token}</span>
-          <div style={{ width: 40, height: 20, borderRadius: 'var(--radius-sm)', background: value, border: '1px solid var(--border-default)' }} />
+          <div style={{ width: 40, height: 20, borderRadius: 'var(--radius-sm)', background: `var(${token})`, border: '1px solid var(--border-default)' }} />
         </div>
       ))}
     </div>
@@ -319,7 +316,8 @@ export const Radii: StoryObj = {
   ),
 }
 
-export const Shadows: StoryObj = {
+export const TokenShadows: StoryObj = {
+  name: 'Shadows',
   render: () => (
     <div style={container}>
       <div style={heading}>Shadows</div>
@@ -327,14 +325,14 @@ export const Shadows: StoryObj = {
 
       <div style={sectionLabel}>Scale</div>
       <div style={{ display: 'flex', gap: 'var(--space-12)', marginTop: 'var(--space-8)', background: 'var(--surface-1)', padding: 'var(--space-12)', borderRadius: 'var(--radius-lg)' }}>
-        {SHADOWS.map(({ token, value }) => (
+        {SHADOWS.map((token) => (
           <div key={token} style={{ textAlign: 'center' }}>
             <div style={{
               width: 80,
               height: 80,
               borderRadius: 'var(--radius-lg)',
               background: 'var(--surface-4)',
-              boxShadow: value,
+              boxShadow: `var(${token})`,
               marginBottom: 'var(--space-4)',
             }} />
             <div style={{ fontSize: 'var(--text-xs)', fontFamily: 'var(--font-mono)', color: 'var(--text-tertiary)' }}>{token}</div>

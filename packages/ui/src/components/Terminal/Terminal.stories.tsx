@@ -80,7 +80,7 @@ function Swatch({ name, cssVar }: { name: string; cssVar: string }) {
   )
 }
 
-const meta: Meta = { title: 'Terminal/Palette' }
+const meta: Meta = { title: 'Components/Terminal Palette' }
 export default meta
 
 export const Palette: StoryObj = {

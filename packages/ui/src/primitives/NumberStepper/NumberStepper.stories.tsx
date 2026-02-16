@@ -5,6 +5,7 @@ import { NumberStepper } from './NumberStepper'
 const meta: Meta<typeof NumberStepper> = {
   title: 'Primitives/NumberStepper',
   component: NumberStepper,
+  decorators: [(Story) => <div style={{ width: 'fit-content' }}><Story /></div>],
 }
 export default meta
 
