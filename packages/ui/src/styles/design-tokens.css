@@ -64,6 +64,14 @@
   --term-magenta: #8b7ec8;
   --term-cyan: #5eb0ef;
   --term-white: #a0a0a8;
+  --term-bright-black: #5c5c66;
+  --term-bright-red: #e5484d;
+  --term-bright-green: #3dd68c;
+  --term-bright-yellow: #d4a84b;
+  --term-bright-blue: #6e6ade;
+  --term-bright-magenta: #8b7ec8;
+  --term-bright-cyan: #5eb0ef;
+  --term-bright-white: #ededef;
 
   /* ═══════════════════════════════════════════════════════
      TYPOGRAPHY
@@ -183,6 +191,14 @@
   --term-magenta: #6b5690;
   --term-cyan: #2b7fa3;
   --term-white: #6e6e78;
+  --term-bright-black: #5c5c66;
+  --term-bright-red: #c2364a;
+  --term-bright-green: #1a8d62;
+  --term-bright-yellow: #8d7500;
+  --term-bright-blue: #4f46a1;
+  --term-bright-magenta: #6b5690;
+  --term-bright-cyan: #2b7fa3;
+  --term-bright-white: #1a1a1e;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.06);

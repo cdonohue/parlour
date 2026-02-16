@@ -1,7 +1,21 @@
-import { useEffect } from 'react'
-import { TerminalPanel as TerminalPanelUI } from '@parlour/ui'
+import { useEffect, useMemo, useState } from 'react'
+import { TerminalPanel as TerminalPanelUI, getTerminalTheme } from '@parlour/ui'
 import { useAppStore } from '../store/app-store'
 import { deriveShortTitle } from '@parlour/ui'
+
+function useResolvedTheme(): 'dark' | 'light' {
+  const theme = useAppStore((s) => s.settings.theme)
+  const [systemMode, setSystemMode] = useState<'dark' | 'light'>(
+    () => document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
+  )
+
+  useEffect(() => {
+    if (theme !== 'system') return
+    return window.api.theme.onResolvedChanged(setSystemMode)
+  }, [theme])
+
+  return theme === 'system' ? systemMode : theme
+}
 
 interface Props {
   ptyId: string
@@ -13,6 +27,9 @@ export function TerminalPanel({ ptyId, active }: Props) {
   const fontFamily = useAppStore((s) => s.settings.terminalFontFamily)
   const setTabTitle = useAppStore((s) => s.setTabTitle)
   const updateChat = useAppStore((s) => s.updateChat)
+
+  const resolvedMode = useResolvedTheme()
+  const terminalTheme = useMemo(() => getTerminalTheme(resolvedMode), [resolvedMode])
 
   useEffect(() => {
     return window.api.pty.onTitle(ptyId, (title) => {
@@ -40,6 +57,7 @@ export function TerminalPanel({ ptyId, active }: Props) {
       active={active}
       fontSize={fontSize}
       fontFamily={fontFamily}
+      terminalTheme={terminalTheme}
       writePty={window.api.pty.write}
       resizePty={window.api.pty.resize}
       subscribePtyData={window.api.pty.onData}

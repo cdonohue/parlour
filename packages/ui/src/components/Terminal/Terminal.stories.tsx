@@ -1,14 +1,29 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { DARK_TERMINAL_THEME, LIGHT_TERMINAL_THEME } from '../../utils/terminal-theme'
-import type { ITheme } from '@xterm/xterm'
 import '../../styles/index.css'
 
-const ANSI_NAMES = [
-  'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white',
-  'brightBlack', 'brightRed', 'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite',
+const STANDARD_COLORS = [
+  { name: 'black', var: '--term-black' },
+  { name: 'red', var: '--term-red' },
+  { name: 'green', var: '--term-green' },
+  { name: 'yellow', var: '--term-yellow' },
+  { name: 'blue', var: '--term-blue' },
+  { name: 'magenta', var: '--term-magenta' },
+  { name: 'cyan', var: '--term-cyan' },
+  { name: 'white', var: '--term-white' },
 ] as const
 
-type AnsiKey = typeof ANSI_NAMES[number]
+const BRIGHT_COLORS = [
+  { name: 'brightBlack', var: '--term-bright-black' },
+  { name: 'brightRed', var: '--term-bright-red' },
+  { name: 'brightGreen', var: '--term-bright-green' },
+  { name: 'brightYellow', var: '--term-bright-yellow' },
+  { name: 'brightBlue', var: '--term-bright-blue' },
+  { name: 'brightMagenta', var: '--term-bright-magenta' },
+  { name: 'brightCyan', var: '--term-bright-cyan' },
+  { name: 'brightWhite', var: '--term-bright-white' },
+] as const
+
+const ALL_COLORS = [...STANDARD_COLORS, ...BRIGHT_COLORS]
 
 const container: React.CSSProperties = {
   padding: 'var(--space-16)',
@@ -39,61 +54,27 @@ const sectionLabel: React.CSSProperties = {
   marginTop: 'var(--space-12)',
 }
 
-function PaletteGrid({ theme, label }: { theme: ITheme; label: string }) {
+function Swatch({ name, cssVar }: { name: string; cssVar: string }) {
   return (
-    <div>
-      <div style={sectionLabel}>{label}</div>
+    <div style={{ textAlign: 'center', minWidth: 0, overflow: 'hidden' }}>
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(8, 1fr)',
-        gap: 'var(--space-3)',
-      }}>
-        {ANSI_NAMES.map((name) => {
-          const color = theme[name as AnsiKey] as string
-          return (
-            <div key={name} style={{ textAlign: 'center' }}>
-              <div style={{
-                width: '100%',
-                aspectRatio: '1',
-                borderRadius: 'var(--radius-md)',
-                background: color,
-                border: '1px solid var(--border-default)',
-                marginBottom: 'var(--space-2)',
-              }} />
-              <div style={{
-                fontSize: 9,
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--text-tertiary)',
-                lineHeight: 1.2,
-              }}>
-                {name}
-              </div>
-              <div style={{
-                fontSize: 9,
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--text-ghost)',
-              }}>
-                {color}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div style={{
-        marginTop: 'var(--space-6)',
-        padding: 'var(--space-8)',
+        width: '100%',
+        aspectRatio: '1',
         borderRadius: 'var(--radius-md)',
-        background: theme.background as string,
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'var(--text-sm)',
-        lineHeight: 1.6,
+        background: `var(${cssVar})`,
         border: '1px solid var(--border-default)',
+        marginBottom: 'var(--space-2)',
+      }} />
+      <div style={{
+        fontSize: 9,
+        fontFamily: 'var(--font-mono)',
+        color: 'var(--text-tertiary)',
+        lineHeight: 1.2,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
       }}>
-        {ANSI_NAMES.map((name) => (
-          <span key={name} style={{ color: theme[name as AnsiKey] as string, marginRight: 8 }}>
-            {name}
-          </span>
-        ))}
+        {name}
       </div>
     </div>
   )
@@ -102,33 +83,42 @@ function PaletteGrid({ theme, label }: { theme: ITheme; label: string }) {
 const meta: Meta = { title: 'Terminal/Palette' }
 export default meta
 
-export const DarkPalette: StoryObj = {
+export const Palette: StoryObj = {
   render: () => (
     <div style={container}>
       <div style={heading}>Terminal ANSI Palette</div>
-      <div style={caption}>16 ANSI colors as rendered in the terminal</div>
-      <PaletteGrid theme={DARK_TERMINAL_THEME} label="Dark" />
-    </div>
-  ),
-}
+      <div style={caption}>Toggle the theme toolbar to compare dark and light palettes</div>
 
-export const LightPalette: StoryObj = {
-  render: () => (
-    <div style={container}>
-      <div style={heading}>Terminal ANSI Palette</div>
-      <div style={caption}>16 ANSI colors as rendered in the terminal</div>
-      <PaletteGrid theme={LIGHT_TERMINAL_THEME} label="Light" />
-    </div>
-  ),
-}
+      <div style={sectionLabel}>Standard</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 'var(--space-3)' }}>
+        {STANDARD_COLORS.map((c) => <Swatch key={c.name} name={c.name} cssVar={c.var} />)}
+      </div>
 
-export const Comparison: StoryObj = {
-  render: () => (
-    <div style={container}>
-      <div style={heading}>Terminal ANSI Palette</div>
-      <div style={caption}>Side-by-side comparison of dark and light palettes</div>
-      <PaletteGrid theme={DARK_TERMINAL_THEME} label="Dark" />
-      <PaletteGrid theme={LIGHT_TERMINAL_THEME} label="Light" />
+      <div style={sectionLabel}>Bright</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 'var(--space-3)' }}>
+        {BRIGHT_COLORS.map((c) => <Swatch key={c.name} name={c.name} cssVar={c.var} />)}
+      </div>
+
+      <div style={sectionLabel}>Text sample</div>
+      <div style={{
+        padding: 'var(--space-8)',
+        borderRadius: 'var(--radius-md)',
+        background: 'var(--term-bg)',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 'var(--text-sm)',
+        lineHeight: 1.8,
+        border: '1px solid var(--border-default)',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 'var(--space-2) var(--space-6)',
+      }}>
+        {ALL_COLORS.map((c) => (
+          <span key={c.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: `var(${c.var})`, border: '1px solid var(--border-default)', flexShrink: 0 }} />
+            <span style={{ color: `var(${c.var === '--term-black' || c.var === '--term-bright-black' ? '--term-fg' : c.var})` }}>{c.name}</span>
+          </span>
+        ))}
+      </div>
     </div>
   ),
 }

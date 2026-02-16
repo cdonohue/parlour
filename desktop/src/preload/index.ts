@@ -183,6 +183,16 @@ const api = {
       ipcRenderer.invoke(IPC.CLI_BASE_DEFAULTS) as Promise<Record<string, string>>,
   },
 
+  theme: {
+    setMode: (mode: string) =>
+      ipcRenderer.invoke(IPC.THEME_SET_MODE, mode),
+    onResolvedChanged: (callback: (resolved: 'dark' | 'light') => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, resolved: 'dark' | 'light') => callback(resolved)
+      ipcRenderer.on(IPC.THEME_RESOLVED_CHANGED, listener)
+      return () => { ipcRenderer.removeListener(IPC.THEME_RESOLVED_CHANGED, listener) }
+    },
+  },
+
   state: {
     save: (data: unknown) =>
       ipcRenderer.invoke(IPC.STATE_SAVE, data),
