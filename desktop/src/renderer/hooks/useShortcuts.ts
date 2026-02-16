@@ -7,6 +7,27 @@ function useKeybindings(): Keybindings {
   return useAppStore((s) => s.settings.keybindings)
 }
 
+function switchToChat(index: number) {
+  const s = useAppStore.getState()
+  const rootChats = s.chats.filter((c) => !c.parentId)
+  const pinned = rootChats.filter((c) => c.pinnedAt != null).sort((a, b) => a.pinnedAt! - b.pinnedAt!)
+  const unpinned = rootChats.filter((c) => c.pinnedAt == null).sort((a, b) => b.lastActiveAt - a.lastActiveAt)
+  const target = [...pinned, ...unpinned][index]
+  if (target) s.navigateToChat(target.id)
+}
+
+function useChatSwitchHotkeys() {
+  useHotkey('Mod+1', () => switchToChat(0))
+  useHotkey('Mod+2', () => switchToChat(1))
+  useHotkey('Mod+3', () => switchToChat(2))
+  useHotkey('Mod+4', () => switchToChat(3))
+  useHotkey('Mod+5', () => switchToChat(4))
+  useHotkey('Mod+6', () => switchToChat(5))
+  useHotkey('Mod+7', () => switchToChat(6))
+  useHotkey('Mod+8', () => switchToChat(7))
+  useHotkey('Mod+9', () => switchToChat(8))
+}
+
 export function useShortcuts() {
   const kb = useKeybindings()
 
@@ -56,6 +77,9 @@ export function useShortcuts() {
   useHotkey(kb['font-reset'], () => {
     useAppStore.getState().updateSettings({ terminalFontSize: 14 })
   })
+
+  // Mod+1..9: switch to nth sidebar chat (non-configurable)
+  useChatSwitchHotkeys()
 
   // Tab/Shift+Tab: non-configurable, capture-phase for xterm
   useEffect(() => {
