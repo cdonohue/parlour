@@ -40,6 +40,8 @@ export interface Chat {
   projects?: ProjectContext[]
 }
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 export type PrLinkProvider = 'github' | 'graphite' | 'devinreview'
 
 export type HotkeyAction =
@@ -79,6 +81,7 @@ export const HOTKEY_LABELS: Record<HotkeyAction, string> = {
 }
 
 export interface Settings {
+  theme: ThemeMode
   defaultShell: string
   restoreLastChat: boolean
   terminalFontSize: number
@@ -94,6 +97,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  theme: 'dark',
   defaultShell: '',
   restoreLastChat: true,
   terminalFontSize: 14,
