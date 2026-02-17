@@ -1,7 +1,7 @@
 {
   "name": "parlour-root",
   "private": true,
-  "workspaces": ["desktop", "packages/*"],
+  "workspaces": ["desktop", "packages/*", "parlour-cli"],
   "scripts": {
     "dev": "bun run --cwd desktop dev",
     "build": "bun run --cwd desktop build",
