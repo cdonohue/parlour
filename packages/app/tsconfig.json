@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@parlour/platform": ["../platform/src/index.ts"],
+      "@parlour/ui": ["../ui/src/index.ts"],
+      "@parlour/ui/*": ["../ui/src/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}
