@@ -94,12 +94,10 @@
 
 .statusDot.done {
   background: var(--accent-green);
-  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent-green) 40%, transparent);
 }
 
 .statusDot.error {
   background: var(--accent-red);
-  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent-red) 40%, transparent);
 }
 
 .nestedChat {
