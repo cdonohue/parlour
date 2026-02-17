@@ -101,10 +101,10 @@ button:active:not(:disabled) {
    ═══════════════════════════════════════════════════════ */
 
 .sash-container .sash {
-  background: var(--surface-3) !important;
-  transition: background var(--transition-default) !important;
-  --sash-size: 1px !important;
+  background: transparent !important;
+  --sash-size: 8px !important;
 }
+
 
 .sash-container .sash:hover,
 .sash-container .sash.active {

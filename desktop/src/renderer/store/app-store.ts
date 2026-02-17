@@ -256,6 +256,13 @@ useAppStore.subscribe((state, prevState) => {
   ) {
     debouncedSave(state)
   }
+
+  if (state.settings.theme !== prevState.settings.theme) {
+    window.api.theme.setMode(state.settings.theme)
+    if (state.settings.theme !== 'system') {
+      document.documentElement.setAttribute('data-theme', state.settings.theme === 'light' ? 'light' : '')
+    }
+  }
 })
 
 // Load persisted state on startup

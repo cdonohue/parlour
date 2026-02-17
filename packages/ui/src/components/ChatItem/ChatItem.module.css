@@ -7,7 +7,7 @@
   font-family: var(--font-ui);
   transition: all var(--transition-fast);
   position: relative;
-  margin: 0 var(--space-4);
+  margin: 0 var(--space-6);
 }
 
 .chatItem:hover {
@@ -59,7 +59,7 @@
   font-size: var(--text-xs);
   color: var(--text-tertiary);
   font-family: var(--font-ui);
-  overflow: hidden;
+  overflow: clip visible;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -94,12 +94,10 @@
 
 .statusDot.done {
   background: var(--accent-green);
-  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent-green) 40%, transparent);
 }
 
 .statusDot.error {
   background: var(--accent-red);
-  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent-red) 40%, transparent);
 }
 
 .nestedChat {

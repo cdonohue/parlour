@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
 import { ParlourMcpServer } from './mcp-server'
@@ -22,7 +22,7 @@ function createWindow(): void {
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 12, y: 12 },
-    backgroundColor: '#13141b',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0b' : '#ffffff',
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -99,7 +99,7 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(menu)
 
   const stateFile = join(app.getPath('userData'), 'parlour-state.json')
-  const settingsGetter = (): { llmCommand: string; maxChatDepth: number; projectRoots: string[] } => {
+  const settingsGetter = (): { llmCommand: string; maxChatDepth: number; projectRoots: string[]; theme: string } => {
     try {
       const data = require('fs').readFileSync(stateFile, 'utf-8')
       const state = JSON.parse(data)
@@ -107,11 +107,26 @@ app.whenReady().then(async () => {
         llmCommand: state?.settings?.llmCommand ?? 'claude',
         maxChatDepth: state?.settings?.maxChatDepth ?? 2,
         projectRoots: state?.settings?.projectRoots ?? [],
+        theme: state?.settings?.theme ?? 'dark',
       }
     } catch {
-      return { llmCommand: 'claude', maxChatDepth: 2, projectRoots: [] }
+      return { llmCommand: 'claude', maxChatDepth: 2, projectRoots: [], theme: 'dark' }
     }
   }
+
+  const persistedTheme = settingsGetter().theme ?? 'dark'
+  nativeTheme.themeSource = persistedTheme === 'system' ? 'system' : persistedTheme
+
+  ipcMain.handle(IPC.THEME_SET_MODE, (_e, mode: string) => {
+    nativeTheme.themeSource = mode === 'system' ? 'system' : (mode as 'light' | 'dark')
+  })
+
+  nativeTheme.on('updated', () => {
+    const resolved = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(IPC.THEME_RESOLVED_CHANGED, resolved)
+    }
+  })
 
   await ensureGlobalSkills().catch((err) => console.error('Failed to ensure global skills:', err))
 

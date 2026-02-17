@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Dialog } from '../../primitives'
+import { Button, Dialog, TextInput } from '../../primitives'
 import styles from './NewChatDialog.module.css'
 
 export interface NewChatConfig {
@@ -26,12 +26,12 @@ export function NewChatDialog({
     <Dialog open onClose={onCancel} title="New Chat" width={400}>
       <div className={styles.body}>
         <label className={styles.label}>Agent</label>
-        <input
-          className={styles.input}
+        <TextInput
           value={llmCommand}
-          onChange={(e) => setLlmCommand(e.target.value)}
+          onChange={setLlmCommand}
           placeholder={defaultLlm}
           autoFocus
+          fullWidth
           onKeyDown={(e) => { if (e.key === 'Enter') onConfirm({ llmCommand: llmOverride }) }}
         />
 

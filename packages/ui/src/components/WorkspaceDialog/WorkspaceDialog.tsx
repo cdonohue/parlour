@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Project } from '../../types'
-import { Button } from '../../primitives'
+import { Button, TextInput } from '../../primitives'
 import styles from './WorkspaceDialog.module.css'
 
 function toKebab(s: string): string {
@@ -72,11 +72,11 @@ export function WorkspaceDialog({ project, branchPrefix = '', onConfirm, onCance
         <div className={styles.title}>New Session</div>
 
         <label className={styles.label}>Name</label>
-        <input
-          className={styles.input}
+        <TextInput
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={setName}
           autoFocus
+          fullWidth
           placeholder="session-name"
         />
 
@@ -98,20 +98,20 @@ export function WorkspaceDialog({ project, branchPrefix = '', onConfirm, onCance
 
         {isNewBranch ? (
           <>
-            <input
-              className={styles.input}
+            <TextInput
               value={branchEdited ? newBranchName : ''}
-              onChange={(e) => { setBranchEdited(true); setNewBranchName(e.target.value) }}
+              onChange={(v) => { setBranchEdited(true); setNewBranchName(v) }}
+              fullWidth
               placeholder={derivedBranch || 'branch-name'}
             />
 
             <label className={styles.label}>Base branch</label>
             <div className={styles.branchInputRow} ref={basePickerRef}>
-              <input
-                className={styles.input}
+              <TextInput
                 value={baseBranch}
-                onChange={(e) => setBaseBranch(e.target.value)}
+                onChange={setBaseBranch}
                 disabled={loading}
+                fullWidth
                 placeholder="main"
               />
               <button
@@ -139,11 +139,11 @@ export function WorkspaceDialog({ project, branchPrefix = '', onConfirm, onCance
           </>
         ) : (
           <div className={styles.branchInputRow} ref={pickerRef}>
-            <input
-              className={styles.input}
+            <TextInput
               value={selectedBranch}
-              onChange={(e) => setSelectedBranch(e.target.value)}
+              onChange={setSelectedBranch}
               disabled={loading}
+              fullWidth
               placeholder="Branch name"
             />
             <button

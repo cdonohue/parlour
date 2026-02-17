@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, nativeTheme } from 'electron'
 import { join, basename, resolve } from 'node:path'
 import { readFile, writeFile, mkdir, rm, symlink, lstat, readdir, stat } from 'node:fs/promises'
 import { existsSync, writeFileSync, mkdirSync, renameSync, watch } from 'node:fs'
@@ -17,6 +17,11 @@ import { resolveCliType, getResumeArgs } from './cli-detect'
 import { ForgeService } from './forge-service'
 
 const execAsync = promisify(execFile)
+
+function themeEnv(): Record<string, string> {
+  const light = !nativeTheme.shouldUseDarkColors
+  return { COLORFGBG: light ? '0;15' : '15;0' }
+}
 
 type ChatStatus = 'active' | 'idle' | 'done' | 'error'
 
@@ -316,7 +321,7 @@ export class ChatRegistry {
         await generateCliConfig(dirPath, chatId, mcpPort, resolveCliType(llmCommand), llmCommand)
       }
 
-      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId }
+      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...themeEnv() }
       const webContents = this.getWebContents()
       const command = this.buildShellCommand(llmCommand, [])
       ptyId = await this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
@@ -393,7 +398,7 @@ export class ChatRegistry {
       } catch {}
     }
 
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId }
+    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, ...themeEnv() }
     const webContents = this.getWebContents()
     const command = this.buildShellCommand(llmCommand, [])
     const ptyId = await this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
@@ -439,7 +444,7 @@ export class ChatRegistry {
     }
 
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId }
+    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...themeEnv() }
 
     const resumeArgs = getResumeArgs(resolveCliType(llmCommand))
 

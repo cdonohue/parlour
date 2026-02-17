@@ -35,22 +35,6 @@
   letter-spacing: 0.02em;
 }
 
-.input {
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-0);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-family: var(--font-mono);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.input:focus {
-  border-color: var(--accent-blue);
-}
-
 .branchToggle {
   display: flex;
   gap: var(--space-1);
@@ -89,11 +73,6 @@
   display: flex;
   gap: var(--space-2);
   position: relative;
-}
-
-.branchInputRow .input {
-  flex: 1;
-  min-width: 0;
 }
 
 .pickerBtn {

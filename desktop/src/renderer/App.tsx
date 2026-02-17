@@ -80,7 +80,7 @@ export function App() {
     <HotkeysProvider>
     <div className={styles.app}>
       <div className={styles.layout}>
-        <Allotment>
+        <Allotment separator={false}>
           {!sidebarCollapsed && (
             <Allotment.Pane minSize={160} maxSize={400} preferredSize={260}>
               <Sidebar />

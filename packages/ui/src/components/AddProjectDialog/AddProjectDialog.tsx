@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Button } from '../../primitives'
+import { Button, TextInput } from '../../primitives'
 import styles from './AddProjectDialog.module.css'
 
 interface AddProjectDialogProps {
@@ -62,11 +62,11 @@ export function AddProjectDialog({ onConfirm, onCancel, onBrowseDirectory, onChe
 
         <label className={styles.label}>Path</label>
         <div className={styles.pathRow}>
-          <input
-            className={styles.input}
+          <TextInput
             value={path}
-            onChange={(e) => handlePathChange(e.target.value)}
+            onChange={handlePathChange}
             autoFocus
+            fullWidth
             placeholder="/path/to/project"
           />
           <Button variant="ghost" size="sm" onClick={handleBrowse}>Browse</Button>
@@ -78,10 +78,10 @@ export function AddProjectDialog({ onConfirm, onCancel, onBrowseDirectory, onChe
         )}
 
         <label className={styles.label}>Name</label>
-        <input
-          className={styles.input}
+        <TextInput
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={setName}
+          fullWidth
           placeholder="project-name"
         />
 

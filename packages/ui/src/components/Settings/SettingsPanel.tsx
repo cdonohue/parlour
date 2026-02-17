@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import type { Settings, HotkeyAction, Keybindings } from '../../types'
+import type { Settings, HotkeyAction, Keybindings, ThemeMode } from '../../types'
 import { DEFAULT_KEYBINDINGS, HOTKEY_LABELS } from '../../types'
 import { formatHotkey } from '../../utils/format-hotkey'
-import { FormRow, Toggle, TextInput, NumberStepper, Select } from '../../primitives'
+import { FormRow, Toggle, TextInput, NumberStepper, Select, IconButton, Button } from '../../primitives'
 import styles from './SettingsPanel.module.css'
 
 const HOTKEY_ACTIONS: HotkeyAction[] = [
@@ -146,15 +146,25 @@ export function SettingsPanel({
         <div className={styles.header}>
           <div className={styles.headerInner}>
             <h2 className={styles.title}>Settings</h2>
-            <button className={styles.closeBtn} onClick={onClose}>
-              <X size={14} />
-            </button>
+            <IconButton icon={<X />} onClick={onClose} title="Close" />
           </div>
         </div>
 
         <div className={styles.content}>
           <div className={styles.section}>
             <div className={styles.sectionTitle}>Appearance</div>
+
+            <FormRow label="Theme" description="App color scheme">
+              <Select
+                value={settings.theme}
+                onChange={(v) => update('theme', v as ThemeMode)}
+                options={[
+                  { value: 'system', label: 'System' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+              />
+            </FormRow>
 
             <FormRow label="Terminal font" description="Monospace font for terminals">
               <Select
@@ -294,12 +304,13 @@ export function SettingsPanel({
             ))}
 
             {hasCustomBindings && (
-              <button
-                className={styles.resetLink}
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => onUpdateSettings({ keybindings: DEFAULT_KEYBINDINGS })}
               >
                 Reset to defaults
-              </button>
+              </Button>
             )}
           </div>
         </div>

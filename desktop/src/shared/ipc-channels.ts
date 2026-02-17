@@ -88,6 +88,10 @@ export const IPC = {
   CLI_DETECT: 'cli:detect',
   CLI_BASE_DEFAULTS: 'cli:base-defaults',
 
+  // Theme
+  THEME_SET_MODE: 'theme:set-mode',
+  THEME_RESOLVED_CHANGED: 'theme:resolved-changed',
+
   // State persistence
   STATE_SAVE: 'state:save',
   STATE_LOAD: 'state:load',
