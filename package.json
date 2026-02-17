@@ -8,6 +8,7 @@
     "test": "bun run --cwd desktop test",
     "rebuild": "bun run --cwd desktop rebuild",
     "dist": "bun run --cwd desktop dist",
+    "dev:browser": "bun run --cwd packages/app dev",
     "storybook": "bun run --cwd packages/ui storybook",
     "test:unit": "bunx vitest run"
   },
