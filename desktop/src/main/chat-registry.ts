@@ -225,7 +225,10 @@ export class ChatRegistry {
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     if (opts.prompt) {
-      this.ptyManager.writeWhenReady(ptyId, opts.prompt).catch((err) => {
+      this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
+        lifecycle.emit({ type: 'pty:prompt-delivered', ptyId, chatId })
+      }).catch((err) => {
+        lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
         log.error('Prompt delivery failed', { chatId, error: err.message })
         this.updateChat(chatId, { status: 'failed' as ChatStatus })
       })
@@ -297,7 +300,10 @@ export class ChatRegistry {
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     if (opts.prompt) {
-      this.ptyManager.writeWhenReady(ptyId, opts.prompt).catch((err) => {
+      this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
+        lifecycle.emit({ type: 'pty:prompt-delivered', ptyId, chatId })
+      }).catch((err) => {
+        lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
         log.error('Prompt delivery failed', { chatId, parentId, error: err.message })
         this.updateChat(chatId, { status: 'failed' as ChatStatus })
       })

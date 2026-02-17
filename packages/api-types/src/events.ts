@@ -9,6 +9,8 @@ export type TerminalEvent =
   | { type: 'chat:status'; chatId: string; from: ChatStatus; to: ChatStatus }
   | { type: 'pty:spawned'; ptyId: string; chatId: string }
   | { type: 'pty:exit'; ptyId: string; chatId: string; exitCode: number }
+  | { type: 'pty:prompt-delivered'; ptyId: string; chatId: string }
+  | { type: 'pty:prompt-failed'; ptyId: string; chatId: string; error: string }
   | { type: 'schedule:triggered'; scheduleId: string; chatId: string }
   | { type: 'schedule:completed'; scheduleId: string; status: string }
 
