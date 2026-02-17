@@ -50,7 +50,7 @@ function usage(): void {
 
 Commands:
   dispatch <prompt>              Spawn a child chat
-  status [chatId]                Check chat status
+  status [chatId] [--follow]     Check chat status (--follow for live SSE stream)
   list-children                  List child chats
   report <message>               Send message to parent
   schedule <prompt> --cron <exp> Create scheduled task
@@ -92,9 +92,38 @@ async function dispatch(args: string[]): Promise<void> {
 }
 
 async function status(args: string[]): Promise<void> {
-  const chatId = args[0] || CHAT_ID
+  const follow = args.includes('--follow')
+  const filtered = args.filter((a) => a !== '--follow')
+  const chatId = filtered[0] || CHAT_ID
+
   const result = await api(`/status/${chatId}`)
   process.stdout.write(JSON.stringify(result, null, 2) + '\n')
+
+  if (follow) {
+    const types = `harness:*,chat:*`
+    const url = `${BASE_URL}/api/events?types=${types}&caller=${CHAT_ID}`
+    debug(`SSE connecting: ${url}`)
+    const res = await fetch(url, { headers: { Accept: 'text/event-stream' } })
+    if (!res.ok || !res.body) {
+      process.stderr.write(`Error: SSE connection failed (${res.status})\n`)
+      process.exit(1)
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += decoder.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop()!
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          process.stdout.write(line.slice(6) + '\n')
+        }
+      }
+    }
+  }
 }
 
 async function listChildren(): Promise<void> {
