@@ -47,19 +47,16 @@ async function readDefaults(cliName: string, filename: string): Promise<string |
 
 // ── Claude Code ──
 
-function buildClaudeHooks(): Record<string, Array<{ type: string; command: string }>> {
+function buildClaudeHooks(): Record<string, unknown[]> {
   return {
     PreToolUse: [{
-      type: 'command',
-      command: 'parlour hook pre-tool-use --tool "$TOOL_NAME"',
+      hooks: [{ type: 'command', command: 'parlour hook pre-tool-use' }],
     }],
     PostToolUse: [{
-      type: 'command',
-      command: 'parlour hook post-tool-use --tool "$TOOL_NAME"',
+      hooks: [{ type: 'command', command: 'parlour hook post-tool-use' }],
     }],
     Stop: [{
-      type: 'command',
-      command: 'parlour hook stop',
+      hooks: [{ type: 'command', command: 'parlour hook stop' }],
     }],
   }
 }
