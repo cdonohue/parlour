@@ -24,12 +24,11 @@ const meta: Meta<typeof ChatItem> = {
     isActive: false,
     isUnread: false,
     depth: 0,
-    menuOpen: false,
     defaultLlmCommand: 'claude',
     onSelect: noop,
     onDelete: noop,
-    onOpenMenu: noop,
-    onCloseMenu: noop,
+    onPin: noop,
+    onUnpin: noop,
   },
 }
 export default meta
@@ -46,6 +45,10 @@ export const Idle: Story = { args: { chat: { ...baseChat, status: 'idle' } } }
 export const Done: Story = { args: { chat: { ...baseChat, status: 'done' } } }
 
 export const Error: Story = { args: { chat: { ...baseChat, status: 'error' } } }
+
+export const WithChild: Story = { args: { canAddChild: true, onAddChild: noop } }
+
+export const Pinned: Story = { args: { chat: { ...baseChat, pinnedAt: Date.now() } } }
 
 export const Nested: Story = { args: { depth: 1, chat: { ...baseChat, parentId: 'parent-1' } } }
 
