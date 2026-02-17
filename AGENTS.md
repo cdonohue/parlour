@@ -23,6 +23,8 @@ All from repo root:
     │       ├── styles/         # CSS variables, tokens, fonts
     │       ├── utils/          # deriveShortTitle, describeCron
     │       └── types.ts        # Shared types (Chat, Repo, Link, Settings, etc.)
+    ├── parlour-cli/            # Agent-facing CLI (parlour dispatch, status, hook, etc.)
+    │   └── src/index.ts        # Single-file CLI, reads ~/.parlour/.mcp-port
     └── desktop/                # Electron app
         ├── src/main/           # Main process services
         ├── src/preload/        # contextBridge → window.api
@@ -41,13 +43,20 @@ Electron 40 · React 19 · TypeScript · Zustand · xterm.js · node-pty · Allo
 Main (Node.js) ←IPC→ Preload (contextBridge) ←window.api→ Renderer (React)
 
 Main process services:
-- **ChatRegistry** — canonical Chat[] and Link[] ownership, all lifecycle ops (create, resume, delete, attach, retitle), PTY exit listeners, sessionId polling, pushes state to renderer
+- **ChatRegistry** — chat/link lifecycle (create, resume, delete, retitle), PTY exit listeners, harness tracking per chat, pushes state to renderer
 - **PtyManager** — node-pty spawn, output buffer (200k cap), OSC title extraction
 - **GitService** — all git ops via execFileAsync('git', ...)
 - **GithubService** — `gh` CLI for PR status, 60s cache, silent degradation
 - **FileService** — file read/write
-- **ParlourMcpServer** — HTTP MCP server for agent orchestration (13 tools)
+- **ApiServer** — HTTP REST API for agent orchestration (api-server.ts), delegates to ParlourService
 - **TaskScheduler** — croner cron/one-time jobs, delegates to ChatRegistry for execution
+- **Logger** — structured JSON lines to `~/.parlour/logs/parlour.jsonl`, child loggers per service
+- **Lifecycle** — typed event emitter for terminal, harness, and CLI events
+- **HarnessTracker** — per-chat status state machine (idle/thinking/writing/tool-use/waiting/done/error)
+
+Cross-cutting:
+- **HarnessParser** — PTY output parser (Claude-specific + generic fallback) → emits HarnessEvents
+- **CliConfig** — per-CLI config generation (Claude hooks, Gemini settings, Codex TOML, OpenCode JSON)
 
 ### IPC Flow
 
@@ -75,28 +84,84 @@ Renderer receives pushes into Zustand. Optimistic local updates for UI-only fiel
 On startup, ChatRegistry reconciles PTYs: dead PTYs → status failed, live PTYs → re-register exit listeners.
 window.__store exposed in dev for testing.
 
-### MCP Server
+### REST API + `parlour` CLI
 
-HTTP on random localhost port → ~/.parlour/.mcp-port.
-Tools: open_repo, add_repo, list_repos, create_worktree, attach_directory, list_links,
-dispatch, get_status, schedule_chat, list_schedules, cancel_schedule, list_children,
-report_to_parent, get_chat_status.
-Per-request caller context via ?caller={chatId}.
+HTTP on random localhost port → `~/.parlour/.mcp-port`.
+
+Agents interact via `parlour` CLI (reads port file, uses `PARLOUR_CHAT_ID` from env):
+
+    parlour dispatch "task description"       # spawn child chat
+    parlour status [chatId]                   # chat status + harness state
+    parlour list-children                     # list child chats
+    parlour report "message"                  # send message to parent PTY
+    parlour schedule list|cancel|run          # schedule management
+    parlour project list|open                 # project management
+    parlour hook <event> [--tool <name>]      # emit harness lifecycle event
+
+API routes (all under `/api/`):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /dispatch | Create chat (child or root) |
+| GET | /status/{chatId} | Status + harness state + terminal tail |
+| GET | /children/{parentId} | List child chats |
+| POST | /report | Write message to parent PTY |
+| GET/POST | /schedules | List or create schedules |
+| POST | /schedules/{id} | Cancel schedule |
+| POST | /schedules/{id}/run | Run schedule now |
+| GET | /projects/{chatId} | List chat projects |
+| POST | /projects/open | Clone/checkout project |
+| POST | /hooks | Harness lifecycle hooks |
+| GET | /health | Health check |
+
+Per-request caller context via `?caller={chatId}`. Every API call emits a CliEvent to the lifecycle emitter.
+
+### Lifecycle Events
+
+Three event streams feed into the lifecycle emitter (lifecycle.ts):
+
+**Terminal events** — emitted by ChatRegistry and PtyManager:
+- `chat:created`, `chat:resumed`, `chat:deleted`, `chat:status`
+- `pty:spawned`, `pty:exit`
+- `schedule:triggered`, `schedule:completed`
+
+**Harness events** — from CLI hooks + output parser → HarnessTracker:
+- `harness:tool:start`, `harness:tool:end`, `harness:stop`
+- `harness:thinking`, `harness:writing`, `harness:waiting`
+- `harness:status` (unified state change from HarnessTracker)
+
+**CLI events** — emitted by ApiServer on every agent request:
+- `cli:dispatch`, `cli:status`, `cli:schedule`, `cli:report`, `cli:project`, `cli:hook`
+
+Subscribe with `lifecycle.on('*', handler)` for all events, or prefix like `lifecycle.on('harness:*', handler)`.
 
 ### Chat Lifecycle
 
 All lifecycle managed by ChatRegistry in main process:
 1. Create dir (~/.parlour/chats/{id}/)
 2. Process attach (worktree create/clone, symlinks)
-3. Write AGENTS.md + MCP config
+3. Write AGENTS.md + CLI config (hooks for Claude, settings for others)
 4. Spawn PTY: `/bin/sh -c exec {llmCommand}`
-5. Register PTY exit listener → saves terminal buffer to disk, updates status
-6. Poll for session ID (Claude only) via setTimeout loop
+5. Attach harness tracking (parser + tracker per chat)
+6. Register PTY exit listener → saves terminal buffer to disk, updates status
 7. On resume: spawn fresh LLM with CLI-specific resume flags, seed terminal buffer
 
-TaskScheduler and McpServer delegate to ChatRegistry instead of creating chats directly.
+TaskScheduler and ApiServer delegate to ChatRegistry instead of creating chats directly.
 Nested chats: parent context summarized via claude CLI → injected into child AGENTS.md.
 Max depth configurable (default: 2).
+
+### Harness Tracking
+
+Two complementary mechanisms per chat:
+
+**CLI hooks** (Claude only): `.claude/settings.local.json` includes PreToolUse/PostToolUse/Stop hooks that call `parlour hook <event>`. Structured events — no parsing needed.
+
+**Output parser** (all CLIs): `HarnessParser.feed()` on PTY output stream. `ClaudeOutputParser` detects tool boxes (╭─ ╰─), thinking spinners, cost summary. `GenericOutputParser` uses idle/burst heuristics.
+
+Both feed into `HarnessTracker` which maintains per-chat state:
+- Status: `idle | thinking | writing | tool-use | waiting | done | error`
+- Current tool name, last activity timestamp, tools-used count
+- Emits `harness:status` lifecycle event on state transitions
 
 ### Chat Resume
 
@@ -119,11 +184,26 @@ Two layers provide continuity when resuming a chat:
 
 Adding a new CLI: add an entry to `CLI_REGISTRY` in `cli-detect.ts` with `resumeWithId` and `resumeLast`.
 
-## Design Principle: UI/MCP Parity
+## Design Principle: UI/CLI Parity
 
-Every action a human can perform through the UI must also be available to agents via MCP tools.
+Every action a human can perform through the UI must also be available to agents via `parlour` CLI.
 Every piece of context visible to the user must be accessible to agents programmatically.
-When adding features, implement both the UI surface and the corresponding MCP tool together.
+When adding features, implement both the UI surface and the corresponding CLI command / API route together.
+
+## Observability
+
+Structured logs to `~/.parlour/logs/parlour.jsonl` (JSON lines, rotated at 5MB).
+
+All lifecycle events logged via wildcard subscriber in index.ts. Services use child loggers: `logger.child({ service: 'ChatRegistry' })`.
+
+Inspect logs:
+- `tail -f ~/.parlour/logs/parlour.jsonl | jq` — live stream
+- `jq 'select(.type | startswith("harness"))' ~/.parlour/logs/parlour.jsonl` — filter harness
+- `PARLOUR_LOG_LEVEL=debug bun run dev` — verbose console output
+
+Agent introspection:
+- `parlour status <chatId>` — chat status + harness state + last 4KB output
+- `parlour list-children` — child chat statuses
 
 ## Implementation Workflow (mandatory)
 
@@ -148,15 +228,26 @@ Never skip straight to coding. Getting alignment first avoids wasted work and ke
 ### desktop/src/main/
     index.ts               App entry, window, service init, cleanup
     ipc.ts                 All IPC handlers, delegates to services
-    chat-registry.ts       Chat/Link lifecycle, state push, persistence
+    chat-registry.ts       Chat/Link lifecycle, state push, harness tracking
     pty-manager.ts         PTY lifecycle, buffer, title extraction
     git-service.ts         Git ops (worktree, status, diff, branch, commit)
     github-service.ts      gh CLI PR status with cache
     file-service.ts        File read/write
-    mcp-server.ts          HTTP MCP server, 13 tools, session tracking
+    api-server.ts          HTTP REST API server (thin adapter over ParlourService)
+    parlour-service.ts     Orchestration logic (dispatch, status, schedules, hooks)
     task-scheduler.ts      Cron/one-time job execution, delegates to ChatRegistry
+    logger.ts              Structured JSON logger, child loggers, rotation
+    lifecycle.ts           Typed event emitter (TerminalEvent, HarnessEvent, CliEvent)
+    harness-parser.ts      PTY output parsers (ClaudeOutputParser, GenericOutputParser)
+    harness-tracker.ts     Per-chat harness status state machine
+    cli-config.ts          Per-CLI config generation (hooks, MCP, settings)
+    config-service.ts      ~/.parlour/config.json (custom LLMs, global MCP servers)
+    cli-detect.ts          CLI type detection + resume flags registry
     claude-config.ts       ~/.claude.json trust, settings
-    parlour-dirs.ts        Chat dir creation, AGENTS.md gen, MCP config
+    parlour-dirs.ts        Chat dir creation, AGENTS.md gen, project scanning
+
+### parlour-cli/
+    src/index.ts           Agent-facing CLI (dispatch, status, hook, etc.)
 
 ### desktop/src/renderer/
     App.tsx                Root component, 2-pane Allotment
