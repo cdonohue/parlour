@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
+import { Plus, ArrowRight, Trash2, Download, Check, Copy, ExternalLink, RefreshCw } from 'lucide-react'
 import { Button } from './Button'
 
 const meta: Meta<typeof Button> = {
@@ -32,3 +33,58 @@ export const AllVariants: Story = {
     </div>
   ),
 }
+
+export const IconLeading: Story = {
+  name: 'Icon + Text',
+  render: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="primary"><Plus /> New chat</Button>
+        <Button variant="ghost"><Download /> Export</Button>
+        <Button variant="danger"><Trash2 /> Delete</Button>
+        <Button variant="outline"><Copy /> Duplicate</Button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="primary" size="sm"><Plus /> Add</Button>
+        <Button variant="ghost" size="sm"><Download /> Export</Button>
+        <Button variant="danger" size="sm"><Trash2 /> Remove</Button>
+        <Button variant="outline" size="sm"><Copy /> Copy</Button>
+      </div>
+    </div>
+  ),
+}
+
+export const IconTrailing: Story = {
+  name: 'Text + Icon',
+  render: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="primary">Continue <ArrowRight /></Button>
+        <Button variant="ghost">Open <ExternalLink /></Button>
+        <Button variant="outline">Done <Check /></Button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="primary" size="sm">Next <ArrowRight /></Button>
+        <Button variant="ghost" size="sm">Open <ExternalLink /></Button>
+        <Button variant="outline" size="sm">Done <Check /></Button>
+      </div>
+    </div>
+  ),
+}
+
+export const IconBothSides: Story = {
+  name: 'Icon + Text + Icon',
+  render: () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="primary"><RefreshCw /> Retry <ArrowRight /></Button>
+        <Button variant="ghost"><Download /> Save as <ExternalLink /></Button>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <Button variant="primary" size="sm"><RefreshCw /> Retry <ArrowRight /></Button>
+        <Button variant="ghost" size="sm"><Download /> Save as <ExternalLink /></Button>
+      </div>
+    </div>
+  ),
+}
+

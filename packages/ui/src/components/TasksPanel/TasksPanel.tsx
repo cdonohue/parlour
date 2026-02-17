@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { Trash2, Plus, Sparkles, Play } from 'lucide-react'
 import type { Schedule } from '../../types'
 import { describeCron, describeOnce, nlToCron } from '../../utils/describe-cron'
-import { Button } from '../../primitives/Button/Button'
+import { Button, IconButton } from '../../primitives'
 import { Toggle } from '../../primitives/Toggle/Toggle'
 import { HStack, VStack } from '../../primitives/Stack/Stack'
 import { Tooltip } from '../Tooltip/Tooltip'
@@ -96,7 +96,7 @@ export function TasksPanel({ schedules, defaultLlm, onAdd, onToggle, onDelete, o
     <div className={styles.container}>
       <div className={styles.header}>
         <span className={styles.title}>Tasks</span>
-        <button className={styles.addBtn} onClick={onAdd}><Plus size={14} /></button>
+        <IconButton icon={<Plus />} onClick={onAdd} title="Add task" size="sm" />
       </div>
       {schedules.length === 0 && (
         <div className={styles.empty}>
@@ -408,13 +408,12 @@ function TaskCard({
             disabled={animating}
           />
           <Tooltip label="Generate cron">
-            <button
-              className={styles.generateBtn}
+            <IconButton
+              icon={<Sparkles />}
               onClick={handleGenerate}
               disabled={animating || !nlInput.trim()}
-            >
-              <Sparkles size={12} />
-            </button>
+              size="sm"
+            />
           </Tooltip>
         </HStack>
       </VStack>
@@ -438,18 +437,20 @@ function TaskCard({
         </span>
         <HStack gap={3} align="center">
           <Tooltip label="Run now">
-            <button
-              className={styles.runBtn}
+            <IconButton
+              icon={<Play />}
               onClick={() => onRunNow(s.id)}
               disabled={!s.prompt.trim()}
-            >
-              <Play size={13} />
-            </button>
+              size="sm"
+            />
           </Tooltip>
           <Tooltip label="Delete">
-            <button className={styles.deleteBtn} onClick={() => onDelete(s.id)}>
-              <Trash2 size={13} />
-            </button>
+            <IconButton
+              icon={<Trash2 />}
+              onClick={() => onDelete(s.id)}
+              variant="danger"
+              size="sm"
+            />
           </Tooltip>
         </HStack>
       </HStack>

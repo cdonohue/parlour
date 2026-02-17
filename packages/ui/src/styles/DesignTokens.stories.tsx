@@ -138,7 +138,7 @@ const divider: React.CSSProperties = {
   margin: 'var(--space-12) 0',
 }
 
-const meta: Meta = { title: 'Tokens' }
+const meta: Meta = { title: 'Design/Tokens' }
 export default meta
 
 export const Typography: StoryObj = {

@@ -202,32 +202,6 @@
   color: var(--text-ghost);
 }
 
-.generateBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-0);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-}
-
-.generateBtn:hover:not(:disabled) {
-  border-color: var(--border-default);
-  color: var(--text-primary);
-  background: var(--surface-2);
-}
-
-.generateBtn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
 .cardDirs {
   display: flex;
   flex-wrap: wrap;
@@ -318,49 +292,6 @@
   font-family: var(--font-ui);
 }
 
-.runBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.runBtn:hover:not(:disabled) {
-  background: var(--surface-3);
-  color: var(--accent);
-}
-
-.runBtn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.deleteBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.deleteBtn:hover {
-  background: var(--surface-3);
-  color: var(--danger);
-}
-
 .empty {
   display: flex;
   flex-direction: column;
@@ -371,23 +302,4 @@
   color: var(--text-tertiary);
   font-size: var(--text-sm);
   font-family: var(--font-ui);
-}
-.addBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  -webkit-app-region: no-drag;
-  transition: all var(--transition-fast);
-}
-
-.addBtn:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
 }

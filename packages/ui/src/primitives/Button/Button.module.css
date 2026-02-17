@@ -2,95 +2,108 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  border: none;
   border-radius: var(--radius-md);
   font-family: var(--font-ui);
   font-weight: var(--weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
 /* ── Sizes ── */
 
 .sm {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-5);
   font-size: var(--text-xs);
+  height: 24px;
+  gap: var(--space-1);
 }
 
 .md {
-  padding: var(--space-2) var(--space-6);
+  padding: var(--space-1) var(--space-6);
   font-size: var(--text-sm);
+  height: 28px;
+  gap: var(--space-2);
+}
+
+/* ── Icons ── */
+
+.btn svg {
+  width: 0.75em;
+  width: 1cap;
+  height: 0.75em;
+  height: 1cap;
+  flex-shrink: 0;
 }
 
 /* ── Variants ── */
 
 .ghost {
-  border: 1px solid var(--border-default);
-  background: none;
+  background: transparent;
   color: var(--text-secondary);
 }
 
 .ghost:hover:not(:disabled) {
-  background: var(--surface-3);
+  background: var(--surface-2);
   color: var(--text-primary);
 }
 
 .primary {
-  border: none;
   background: var(--accent-blue);
-  color: var(--text-inverse);
+  color: #fff;
 }
 
 .primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  filter: brightness(0.88);
 }
 
 .danger {
-  border: 1px solid var(--accent-red);
   background: var(--accent-red-dim);
   color: var(--accent-red);
 }
 
 .danger:hover:not(:disabled) {
-  background: rgba(229, 72, 77, 0.2);
+  background: var(--accent-red);
+  color: #fff;
 }
 
 .outline {
-  border: 1px solid var(--accent-blue);
-  background: var(--accent-blue-glow);
-  color: var(--accent-blue);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .outline:hover:not(:disabled) {
-  background: rgba(110, 106, 222, 0.2);
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 
 .outlineDanger {
-  border: 1px solid var(--accent-red);
-  background: var(--accent-red-dim);
+  background: transparent;
   color: var(--accent-red);
+  box-shadow: inset 0 0 0 1px var(--border-default);
 }
 
 .outlineDanger:hover:not(:disabled) {
-  background: rgba(229, 72, 77, 0.2);
+  background: var(--accent-red-dim);
 }
 
 .dashed {
-  border: 1px dashed var(--border-default);
-  background: none;
+  background: transparent;
   color: var(--text-tertiary);
   font-weight: normal;
+  border: 1px dashed var(--border-default);
 }
 
 .dashed:hover:not(:disabled) {
-  border-color: var(--text-tertiary);
+  background: var(--surface-3);
   color: var(--text-secondary);
 }
 

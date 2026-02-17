@@ -14,7 +14,7 @@ const box = (label: string): React.ReactElement => (
   </div>
 )
 
-const meta: Meta = { title: 'Primitives/Stack' }
+const meta: Meta = { title: 'Layout/Stack' }
 export default meta
 
 export const Horizontal: StoryObj = {

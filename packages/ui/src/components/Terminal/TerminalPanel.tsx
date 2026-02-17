@@ -167,6 +167,7 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, terminalThe
   useEffect(() => {
     if (!termRef.current || !terminalTheme) return
     termRef.current.options.theme = terminalTheme
+    termRef.current.refresh(0, termRef.current.rows - 1)
   }, [terminalTheme])
 
   useEffect(() => {
