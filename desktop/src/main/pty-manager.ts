@@ -229,7 +229,7 @@ export class PtyManager {
           reject(new Error(`PTY ${ptyId} not ready after ${maxAttempts * 500 / 1000}s (${this.ptys.size} concurrent)`))
           return
         }
-        if (instance.detectedTitle) {
+        if (instance.detectedTitle || instance.outputBuffer.length > 0) {
           this.write(ptyId, text)
           if (submit) setTimeout(() => this.write(ptyId, '\r'), 100)
           resolve()
