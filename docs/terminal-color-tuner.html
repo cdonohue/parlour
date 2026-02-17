@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terminal Color Tuner — Parlour</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #111; color: #ddd; height: 100vh; overflow: hidden; }
+
+  .layout { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+
+  /* Controls panel */
+  .controls { background: #1a1a1e; border-right: 1px solid #333; overflow-y: auto; padding: 16px; }
+  .controls h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin: 16px 0 8px; }
+  .controls h2:first-child { margin-top: 0; }
+
+  .mode-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .mode-tab { flex: 1; padding: 8px; text-align: center; border: 1px solid #333; border-radius: 6px; cursor: pointer; font-size: 13px; background: transparent; color: #888; transition: all 0.15s; }
+  .mode-tab.active { background: #6e6ade; color: #fff; border-color: #6e6ade; }
+
+  .color-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .color-label { font-size: 12px; font-family: 'SF Mono', Menlo, monospace; width: 100px; color: #aaa; }
+  .color-input { width: 32px; height: 24px; border: 1px solid #444; border-radius: 4px; cursor: pointer; background: none; padding: 0; }
+  .color-input::-webkit-color-swatch-wrapper { padding: 1px; }
+  .color-input::-webkit-color-swatch { border: none; border-radius: 3px; }
+  .color-hex { font-size: 11px; font-family: 'SF Mono', Menlo, monospace; color: #666; width: 62px; background: #0a0a0b; border: 1px solid #333; border-radius: 3px; padding: 2px 4px; color: #aaa; text-align: center; }
+  .reset-btn { font-size: 10px; background: none; border: 1px solid #444; border-radius: 3px; color: #666; cursor: pointer; padding: 1px 5px; }
+  .reset-btn:hover { border-color: #888; color: #aaa; }
+
+  .preset-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .preset-btn { padding: 5px 10px; font-size: 11px; border: 1px solid #444; border-radius: 4px; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
+  .preset-btn:hover { border-color: #6e6ade; color: #ddd; }
+  .preset-btn.active { background: #6e6ade33; border-color: #6e6ade; color: #fff; }
+
+  /* Preview panel */
+  .preview-area { display: flex; flex-direction: column; overflow: hidden; }
+
+  .terminal-preview { flex: 1; padding: 16px 20px; font-family: 'SF Mono', 'Geist Mono', Menlo, monospace; font-size: 13px; line-height: 1.5; overflow-y: auto; transition: background-color 0.2s; }
+
+  .section-label { font-size: 11px; color: #666; margin: 12px 0 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .section-label:first-child { margin-top: 0; }
+
+  .color-block { display: inline-block; width: 48px; height: 20px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+  .swatch-row { margin: 2px 0; display: flex; align-items: center; gap: 8px; }
+  .swatch-name { display: inline-block; width: 100px; }
+
+  .sample-line { margin: 1px 0; }
+
+  /* Prompt area */
+  .prompt-area { border-top: 1px solid #333; padding: 12px 16px; background: #1a1a1e; }
+  .prompt-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .prompt-header span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #666; }
+  .copy-btn { padding: 4px 12px; font-size: 12px; border: 1px solid #444; border-radius: 4px; background: transparent; color: #aaa; cursor: pointer; transition: all 0.15s; }
+  .copy-btn:hover { border-color: #6e6ade; color: #fff; }
+  .copy-btn.copied { background: #6e6ade; border-color: #6e6ade; color: #fff; }
+  .prompt-text { font-family: 'SF Mono', Menlo, monospace; font-size: 11px; line-height: 1.6; color: #ccc; white-space: pre-wrap; max-height: 180px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="controls">
+    <h2>Mode</h2>
+    <div class="mode-tabs">
+      <div class="mode-tab active" onclick="setMode('dark')">Dark</div>
+      <div class="mode-tab" onclick="setMode('light')">Light</div>
+    </div>
+
+    <h2>Presets</h2>
+    <div class="preset-row" id="presets"></div>
+
+    <h2>Background / Foreground</h2>
+    <div id="meta-colors"></div>
+
+    <h2>Normal Colors (0–7)</h2>
+    <div id="normal-colors"></div>
+
+    <h2>Bright Colors (8–15)</h2>
+    <div id="bright-colors"></div>
+  </div>
+
+  <div class="preview-area">
+    <div class="terminal-preview" id="preview"></div>
+    <div class="prompt-area">
+      <div class="prompt-header">
+        <span>Prompt Output</span>
+        <button class="copy-btn" onclick="copyPrompt()">Copy</button>
+      </div>
+      <div class="prompt-text" id="prompt"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const NAMES = ['black','red','green','yellow','blue','magenta','cyan','white'];
+const BRIGHT_NAMES = NAMES.map(n => 'bright' + n[0].toUpperCase() + n.slice(1));
+const META_NAMES = ['background','foreground','cursor','selectionBackground'];
+
+const PRESETS = {
+  dark: {
+    'Parlour Dark': {
+      background:'#0a0a0b', foreground:'#ededef', cursor:'#ededef', selectionBackground:'rgba(110,106,222,0.3)',
+      black:'#0a0a0b', red:'#e5484d', green:'#3dd68c', yellow:'#d4a84b', blue:'#6e6ade', magenta:'#8b7ec8', cyan:'#5eb0ef', white:'#a0a0a8',
+      brightBlack:'#5c5c66', brightRed:'#e5484d', brightGreen:'#3dd68c', brightYellow:'#d4a84b', brightBlue:'#6e6ade', brightMagenta:'#8b7ec8', brightCyan:'#5eb0ef', brightWhite:'#ededef',
+    },
+    'One Dark': {
+      background:'#282c34', foreground:'#abb2bf', cursor:'#528bff', selectionBackground:'rgba(82,139,255,0.3)',
+      black:'#282c34', red:'#e06c75', green:'#98c379', yellow:'#e5c07b', blue:'#61afef', magenta:'#c678dd', cyan:'#56b6c2', white:'#abb2bf',
+      brightBlack:'#545862', brightRed:'#e06c75', brightGreen:'#98c379', brightYellow:'#e5c07b', brightBlue:'#61afef', brightMagenta:'#c678dd', brightCyan:'#56b6c2', brightWhite:'#c8ccd4',
+    },
+    'Dracula': {
+      background:'#282a36', foreground:'#f8f8f2', cursor:'#f8f8f2', selectionBackground:'rgba(68,71,90,0.5)',
+      black:'#21222c', red:'#ff5555', green:'#50fa7b', yellow:'#f1fa8c', blue:'#bd93f9', magenta:'#ff79c6', cyan:'#8be9fd', white:'#f8f8f2',
+      brightBlack:'#6272a4', brightRed:'#ff6e6e', brightGreen:'#69ff94', brightYellow:'#ffffa5', brightBlue:'#d6acff', brightMagenta:'#ff92df', brightCyan:'#a4ffff', brightWhite:'#ffffff',
+    },
+    'Tokyo Night': {
+      background:'#1a1b26', foreground:'#a9b1d6', cursor:'#c0caf5', selectionBackground:'rgba(45,51,89,0.5)',
+      black:'#15161e', red:'#f7768e', green:'#9ece6a', yellow:'#e0af68', blue:'#7aa2f7', magenta:'#bb9af7', cyan:'#7dcfff', white:'#a9b1d6',
+      brightBlack:'#414868', brightRed:'#f7768e', brightGreen:'#9ece6a', brightYellow:'#e0af68', brightBlue:'#7aa2f7', brightMagenta:'#bb9af7', brightCyan:'#7dcfff', brightWhite:'#c0caf5',
+    },
+  },
+  light: {
+    'Parlour Light': {
+      background:'#ffffff', foreground:'#1a1a1e', cursor:'#1a1a1e', selectionBackground:'rgba(110,106,222,0.15)',
+      black:'#000000', red:'#CD3131', green:'#116329', yellow:'#7D4E00', blue:'#0451A5', magenta:'#8B3FC7', cyan:'#0598BC', white:'#555555',
+      brightBlack:'#4F4F4F', brightRed:'#CD3131', brightGreen:'#14CE14', brightYellow:'#B5BA00', brightBlue:'#0366D6', brightMagenta:'#BC05BC', brightCyan:'#0598BC', brightWhite:'#1a1a1e',
+    },
+    'VS Code Light': {
+      background:'#ffffff', foreground:'#383a42', cursor:'#383a42', selectionBackground:'rgba(0,0,0,0.07)',
+      black:'#000000', red:'#cd3131', green:'#008000', yellow:'#795e26', blue:'#0000ff', magenta:'#af00db', cyan:'#0451a5', white:'#383a42',
+      brightBlack:'#808080', brightRed:'#cd3131', brightGreen:'#008000', brightYellow:'#795e26', brightBlue:'#0000ff', brightMagenta:'#af00db', brightCyan:'#0451a5', brightWhite:'#383a42',
+    },
+    'Solarized Light': {
+      background:'#fdf6e3', foreground:'#657b83', cursor:'#586e75', selectionBackground:'rgba(238,232,213,0.5)',
+      black:'#073642', red:'#dc322f', green:'#859900', yellow:'#b58900', blue:'#268bd2', magenta:'#d33682', cyan:'#2aa198', white:'#eee8d5',
+      brightBlack:'#002b36', brightRed:'#cb4b16', brightGreen:'#586e75', brightYellow:'#657b83', brightBlue:'#839496', brightMagenta:'#6c71c4', brightCyan:'#93a1a1', brightWhite:'#fdf6e3',
+    },
+    'GitHub Light': {
+      background:'#ffffff', foreground:'#24292e', cursor:'#24292e', selectionBackground:'rgba(3,102,214,0.15)',
+      black:'#24292e', red:'#d73a49', green:'#22863a', yellow:'#b08800', blue:'#0366d6', magenta:'#6f42c1', cyan:'#1b7c83', white:'#6a737d',
+      brightBlack:'#586069', brightRed:'#cb2431', brightGreen:'#28a745', brightYellow:'#dbab09', brightBlue:'#2188ff', brightMagenta:'#8a63d2', brightCyan:'#3192aa', brightWhite:'#2f363d',
+    },
+  },
+};
+
+let mode = 'dark';
+let state = { dark: { ...PRESETS.dark['Parlour Dark'] }, light: { ...PRESETS.light['Parlour Light'] } };
+
+function rgbaToHex(val) {
+  if (val.startsWith('#')) return val;
+  return val; // keep rgba as-is for selection
+}
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && m === 'dark') || (i === 1 && m === 'light'));
+  });
+  renderControls();
+  renderPreview();
+  updatePrompt();
+}
+
+function renderControls() {
+  const s = state[mode];
+  const presets = PRESETS[mode];
+
+  // Presets
+  const presetEl = document.getElementById('presets');
+  presetEl.innerHTML = Object.keys(presets).map(name =>
+    `<button class="preset-btn" onclick="applyPreset('${name}')">${name}</button>`
+  ).join('');
+
+  // Meta colors
+  const metaEl = document.getElementById('meta-colors');
+  metaEl.innerHTML = META_NAMES.map(name => {
+    const val = s[name];
+    const isRgba = val.startsWith('rgba');
+    return `<div class="color-row">
+      <span class="color-label">${name}</span>
+      ${isRgba
+        ? `<input class="color-hex" value="${val}" style="width:180px" onchange="updateColor('${name}', this.value)">`
+        : `<input type="color" class="color-input" value="${val}" onchange="updateColor('${name}', this.value)">
+           <input class="color-hex" value="${val}" onchange="updateColor('${name}', this.value)">`}
+    </div>`;
+  }).join('');
+
+  // Normal colors
+  const normalEl = document.getElementById('normal-colors');
+  normalEl.innerHTML = NAMES.map(name => {
+    const val = s[name];
+    return `<div class="color-row">
+      <span class="color-label">${name}</span>
+      <input type="color" class="color-input" value="${val}" onchange="updateColor('${name}', this.value)">
+      <input class="color-hex" value="${val}" onchange="updateColor('${name}', this.value)">
+      <button class="reset-btn" onclick="resetColor('${name}')">↺</button>
+    </div>`;
+  }).join('');
+
+  // Bright colors
+  const brightEl = document.getElementById('bright-colors');
+  brightEl.innerHTML = BRIGHT_NAMES.map(name => {
+    const val = s[name];
+    return `<div class="color-row">
+      <span class="color-label">${name}</span>
+      <input type="color" class="color-input" value="${val}" onchange="updateColor('${name}', this.value)">
+      <input class="color-hex" value="${val}" onchange="updateColor('${name}', this.value)">
+      <button class="reset-btn" onclick="resetColor('${name}')">↺</button>
+    </div>`;
+  }).join('');
+}
+
+function updateColor(name, value) {
+  state[mode][name] = value;
+  renderControls();
+  renderPreview();
+  updatePrompt();
+}
+
+function resetColor(name) {
+  const defaultPreset = mode === 'dark' ? PRESETS.dark['Parlour Dark'] : PRESETS.light['Parlour Light'];
+  state[mode][name] = defaultPreset[name];
+  renderControls();
+  renderPreview();
+  updatePrompt();
+}
+
+function applyPreset(name) {
+  state[mode] = { ...PRESETS[mode][name] };
+  renderControls();
+  renderPreview();
+  updatePrompt();
+}
+
+function renderPreview() {
+  const s = state[mode];
+  const bg = s.background;
+  const fg = s.foreground;
+  const preview = document.getElementById('preview');
+  preview.style.background = bg;
+  preview.style.color = fg;
+
+  const allColors = [...NAMES.map(n => ({ name: n, key: n })), ...BRIGHT_NAMES.map(n => ({ name: n, key: n }))];
+
+  let html = '';
+
+  // Swatches
+  html += `<div class="section-label" style="color:${s.white}">Color Swatches</div>`;
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 24px">';
+  for (let i = 0; i < NAMES.length; i++) {
+    const n = NAMES[i];
+    const bn = BRIGHT_NAMES[i];
+    html += `<div class="swatch-row">
+      <span class="color-block" style="background:${s[n]}"></span>
+      <span class="swatch-name">${n}</span>
+      <span style="color:${s[n]}">${s[n]}</span>
+    </div>`;
+    html += `<div class="swatch-row">
+      <span class="color-block" style="background:${s[bn]}"></span>
+      <span class="swatch-name">${bn}</span>
+      <span style="color:${s[bn]}">${s[bn]}</span>
+    </div>`;
+  }
+  html += '</div>';
+
+  // Simulated terminal output
+  html += `<div class="section-label" style="color:${s.white};margin-top:20px">Simulated Terminal Output</div>`;
+
+  // Git diff
+  html += `<div style="margin:8px 0">`;
+  html += `<span style="color:${s.white}">$ git diff</span><br>`;
+  html += `<span style="color:${s.brightBlack}">diff --git a/src/app.ts b/src/app.ts</span><br>`;
+  html += `<span style="color:${s.brightBlack}">index 4fd1e69..26957b6 100644</span><br>`;
+  html += `<span style="color:${s.brightCyan}">@@ -1,5 +1,6 @@</span><br>`;
+  html += `<span style="color:${fg}"> import { useEffect } from 'react'</span><br>`;
+  html += `<span style="color:${s.red}">-import { Terminal } from '@xterm/xterm'</span><br>`;
+  html += `<span style="color:${s.green}">+import { Terminal } from '@xterm/xterm'</span><br>`;
+  html += `<span style="color:${s.green}">+import type { ITheme } from '@xterm/xterm'</span><br>`;
+  html += `</div>`;
+
+  // Compiler errors
+  html += `<div style="margin:8px 0">`;
+  html += `<span style="color:${s.white}">$ tsc --noEmit</span><br>`;
+  html += `<span style="color:${s.red}">error</span><span style="color:${fg}"> TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.</span><br>`;
+  html += `<span style="color:${s.cyan}">  → src/utils.ts</span><span style="color:${s.yellow}">:42:17</span><br>`;
+  html += `<span style="color:${s.red}">error</span><span style="color:${fg}"> TS7006: Parameter 'x' implicitly has an 'any' type.</span><br>`;
+  html += `<span style="color:${s.cyan}">  → src/handler.ts</span><span style="color:${s.yellow}">:18:3</span><br>`;
+  html += `<br>`;
+  html += `<span style="color:${s.red}">Found 2 errors.</span><br>`;
+  html += `</div>`;
+
+  // Test output
+  html += `<div style="margin:8px 0">`;
+  html += `<span style="color:${s.white}">$ vitest run</span><br>`;
+  html += `<span style="color:${s.green}"> ✓</span><span style="color:${fg}"> src/utils.test.ts (3 tests) </span><span style="color:${s.brightBlack}">12ms</span><br>`;
+  html += `<span style="color:${s.red}"> ✗</span><span style="color:${fg}"> src/handler.test.ts (2 tests) </span><span style="color:${s.brightBlack}">8ms</span><br>`;
+  html += `<span style="color:${s.red}">   FAIL</span><span style="color:${fg}"> should handle null input</span><br>`;
+  html += `<span style="color:${s.yellow}"> ⚠</span><span style="color:${fg}"> src/compat.test.ts (1 test) </span><span style="color:${s.yellow}">skipped</span><br>`;
+  html += `<br>`;
+  html += `<span style="color:${s.green}"> Tests  3 passed</span> <span style="color:${s.red}">| 1 failed</span> <span style="color:${s.yellow}">| 1 skipped</span><br>`;
+  html += `</div>`;
+
+  // ls with colors
+  html += `<div style="margin:8px 0">`;
+  html += `<span style="color:${s.white}">$ ls -la</span><br>`;
+  html += `<span style="color:${s.blue}">drwxr-xr-x</span>  <span style="color:${s.cyan}">src/</span><br>`;
+  html += `<span style="color:${s.blue}">drwxr-xr-x</span>  <span style="color:${s.cyan}">tests/</span><br>`;
+  html += `<span style="color:${fg}">-rw-r--r--</span>  <span style="color:${fg}">package.json</span><br>`;
+  html += `<span style="color:${fg}">-rw-r--r--</span>  <span style="color:${s.green}">README.md</span><br>`;
+  html += `<span style="color:${fg}">-rwxr-xr-x</span>  <span style="color:${s.red}">build.sh</span><br>`;
+  html += `<span style="color:${fg}">-rw-r--r--</span>  <span style="color:${s.magenta}">logo.png</span><br>`;
+  html += `</div>`;
+
+  // Claude-style output
+  html += `<div style="margin:8px 0">`;
+  html += `<span style="color:${s.white}">$ claude</span><br>`;
+  html += `<span style="color:${s.blue}">╭─────────────────────────────────╮</span><br>`;
+  html += `<span style="color:${s.blue}">│</span> <span style="color:${s.brightWhite}; font-weight:bold">Claude Code</span> <span style="color:${s.brightBlack}">v1.0.32</span>          <span style="color:${s.blue}">│</span><br>`;
+  html += `<span style="color:${s.blue}">╰─────────────────────────────────╯</span><br>`;
+  html += `<span style="color:${s.brightBlack}">cwd: </span><span style="color:${s.cyan}">/Users/dev/project</span><br>`;
+  html += `<br>`;
+  html += `<span style="color:${s.green}">❯</span> <span style="color:${fg}">What would you like to do?</span><br>`;
+  html += `<br>`;
+  html += `<span style="color:${s.magenta}">assistant</span> <span style="color:${s.brightBlack}">I'll help you with that. Let me </span><br>`;
+  html += `<span style="color:${s.brightBlack}">look at the relevant files first.</span><br>`;
+  html += `<br>`;
+  html += `<span style="color:${s.yellow}">⏺ Read</span> <span style="color:${fg}">src/app.ts</span><br>`;
+  html += `<span style="color:${s.yellow}">⏺ Edit</span> <span style="color:${fg}">src/utils.ts</span> <span style="color:${s.green}">+5</span> <span style="color:${s.red}">-2</span><br>`;
+  html += `</div>`;
+
+  // Prompt with bold/dim
+  html += `<div style="margin:8px 0">`;
+  html += `<span style="color:${s.white}">$ echo "Text styling"</span><br>`;
+  html += `<span style="font-weight:bold;color:${fg}">Bold text</span> · `;
+  html += `<span style="opacity:0.6;color:${fg}">Dim text</span> · `;
+  html += `<span style="text-decoration:underline;color:${fg}">Underlined</span> · `;
+  html += `<span style="color:${s.black};background:${s.white}"> Reversed </span><br>`;
+  html += `</div>`;
+
+  preview.innerHTML = html;
+}
+
+function updatePrompt() {
+  const ds = state.dark;
+  const ls = state.light;
+  const dd = PRESETS.dark['Parlour Dark'];
+  const ld = PRESETS.light['Parlour Light'];
+
+  let lines = [];
+  lines.push('Update the terminal theme in packages/ui/src/utils/terminal-theme.ts:\n');
+
+  lines.push('DARK_TERMINAL_THEME:');
+  for (const k of [...META_NAMES, ...NAMES, ...BRIGHT_NAMES]) {
+    lines.push(`  ${k}: '${ds[k]}'`);
+  }
+
+  lines.push('\nLIGHT_TERMINAL_THEME:');
+  for (const k of [...META_NAMES, ...NAMES, ...BRIGHT_NAMES]) {
+    lines.push(`  ${k}: '${ls[k]}'`);
+  }
+
+  document.getElementById('prompt').textContent = lines.join('\n');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+// Init
+renderControls();
+renderPreview();
+updatePrompt();
+</script>
+</body>
+</html>

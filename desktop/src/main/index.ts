@@ -1,7 +1,5 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'path'
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { registerIpcHandlers } from './ipc'
 import { ParlourMcpServer } from './mcp-server'
 import { PtyManager } from './pty-manager'
@@ -123,27 +121,11 @@ app.whenReady().then(async () => {
     nativeTheme.themeSource = mode === 'system' ? 'system' : (mode as 'light' | 'dark')
   })
 
-  async function syncClaudeTheme(): Promise<void> {
-    const resolved = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
-    const settingsPath = join(homedir(), '.claude', 'settings.json')
-    try {
-      await mkdir(join(homedir(), '.claude'), { recursive: true })
-      let settings: Record<string, unknown> = {}
-      try { settings = JSON.parse(await readFile(settingsPath, 'utf-8')) } catch {}
-      if (settings.theme === resolved) return
-      settings.theme = resolved
-      await writeFile(settingsPath, JSON.stringify(settings, null, 2), 'utf-8')
-    } catch {}
-  }
-
-  syncClaudeTheme()
-
   nativeTheme.on('updated', () => {
     const resolved = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IPC.THEME_RESOLVED_CHANGED, resolved)
     }
-    syncClaudeTheme()
   })
 
   await ensureGlobalSkills().catch((err) => console.error('Failed to ensure global skills:', err))

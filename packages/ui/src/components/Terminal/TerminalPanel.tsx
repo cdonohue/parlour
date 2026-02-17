@@ -41,17 +41,21 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, terminalThe
         if (disposed) return
 
         const resolvedFont = `'${fontFamily || 'Geist Mono'}', 'SF Mono', Menlo, monospace`
+        const isLight = terminalTheme?.background === '#ffffff'
         const term = new Terminal({
           fontSize,
           fontFamily: resolvedFont,
-          fontWeight: '500',
-          fontWeightBold: '700',
+          fontWeight: isLight ? '600' : '500',
+          fontWeightBold: isLight ? '800' : '700',
           lineHeight: 1.35,
           cursorBlink: true,
           cursorStyle: 'bar',
           cursorWidth: 2,
           scrollback: 10000,
           allowTransparency: true,
+          minimumContrastRatio: isLight ? 4.5 : 1,
+          customGlyphs: true,
+          drawBoldTextInBrightColors: false,
           theme: terminalTheme ?? {
             background: '#0a0a0b',
             foreground: '#ededef',
@@ -166,6 +170,10 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, terminalThe
 
   useEffect(() => {
     if (!termRef.current || !terminalTheme) return
+    const light = terminalTheme.background === '#ffffff'
+    termRef.current.options.fontWeight = light ? '600' : '500'
+    termRef.current.options.fontWeightBold = light ? '800' : '700'
+    termRef.current.options.minimumContrastRatio = light ? 4.5 : 1
     termRef.current.options.theme = terminalTheme
     termRef.current.refresh(0, termRef.current.rows - 1)
   }, [terminalTheme])

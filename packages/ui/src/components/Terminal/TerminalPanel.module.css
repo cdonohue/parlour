@@ -5,7 +5,7 @@
   inset: 0;
   background: var(--term-bg);
   overflow: hidden;
-  padding: var(--space-6) 0 0 var(--space-8);
+  padding: var(--space-6);
   box-sizing: border-box;
 }
 

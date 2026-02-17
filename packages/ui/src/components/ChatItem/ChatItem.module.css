@@ -7,7 +7,7 @@
   font-family: var(--font-ui);
   transition: all var(--transition-fast);
   position: relative;
-  margin: 0 var(--space-4);
+  margin: 0 var(--space-6);
 }
 
 .chatItem:hover {

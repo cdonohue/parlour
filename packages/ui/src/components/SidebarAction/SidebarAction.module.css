@@ -26,11 +26,13 @@
 }
 
 .action.bordered {
-  border: 1px solid var(--border-default);
+  background: var(--surface-4);
+  border: 0.5px solid var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 .action.bordered:hover {
-  border-color: var(--text-tertiary);
+  background: var(--surface-5);
 }
 
 .action.inverted {

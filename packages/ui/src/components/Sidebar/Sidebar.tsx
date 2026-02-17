@@ -5,8 +5,8 @@ import { Settings, Plus, Pin, PinOff, ListTodo, Wand2 } from 'lucide-react'
 import type { Chat, Schedule, ConfirmDialogState, Keybindings } from '../../types'
 import { formatHotkey } from '../../utils/format-hotkey'
 import { HStack, VStack } from '../../primitives/Stack/Stack'
-import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { SidebarAction } from '../SidebarAction/SidebarAction'
+import { ConfirmDialog } from '../ConfirmDialog/ConfirmDialog'
 import { ChatItem } from '../ChatItem/ChatItem'
 import styles from './Sidebar.module.css'
 
@@ -147,7 +147,7 @@ export function Sidebar({
       <div className={styles.titleArea} />
 
       <HStack align="center" className={styles.topActions}>
-        <SidebarAction icon={<Plus size={14} />} label="New chat" shortcut={keybindings?.['new-chat'] ? formatHotkey(keybindings['new-chat']) : undefined} bordered onClick={(e) => onNewChat({ withDialog: e?.shiftKey })} />
+        <SidebarAction icon={<Plus size={14} />} label="New chat" bordered onClick={(e) => onNewChat({ withDialog: e?.shiftKey })} />
       </HStack>
 
       <VStack className={styles.scrollArea} gap={3}>
@@ -185,11 +185,10 @@ export function Sidebar({
         </VStack>
       </VStack>
 
-      <div className={styles.actions}>
+      <VStack className={styles.actions}>
         <SidebarAction icon={<ListTodo size={14} />} label="Tasks" badge={schedules.length} onClick={onToggleTasks} />
-        <div className={styles.actionsDivider} />
         <SidebarAction icon={<Settings size={14} />} label="Settings" onClick={onToggleSettings} />
-      </div>
+      </VStack>
 
       {confirmDialog && (
         <ConfirmDialog

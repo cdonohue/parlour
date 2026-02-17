@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parlour Architecture</title>
+<style>
+  :root {
+    --bg: #13141b;
+    --surface-1: #1a1b24;
+    --surface-2: #1e1f2a;
+    --surface-3: #262733;
+    --surface-4: #2e2f3d;
+    --border: #333446;
+    --text-primary: #e2e4ed;
+    --text-secondary: #a0a3b5;
+    --text-tertiary: #6b6e82;
+    --text-ghost: #4a4d5e;
+    --accent-blue: #60a5fa;
+    --accent-green: #4ade80;
+    --accent-red: #f87171;
+    --accent-yellow: #fbbf24;
+    --accent-purple: #a78bfa;
+    --accent-cyan: #22d3ee;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --font-ui: system-ui, -apple-system, sans-serif;
+    --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text-primary); font-family: var(--font-ui); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .layout { display: flex; flex: 1; overflow: hidden; }
+  .controls { width: 280px; flex-shrink: 0; background: var(--surface-1); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .diagram { flex: 1; overflow: auto; padding: 24px; }
+
+  .prompt-bar { flex-shrink: 0; background: var(--surface-1); border-top: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .prompt-text { flex: 1; font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .copy-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--text-secondary); font-family: var(--font-ui); font-size: 12px; cursor: pointer; }
+  .copy-btn:hover { background: var(--surface-4); color: var(--text-primary); }
+
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 500; }
+  .section { display: flex; flex-direction: column; gap: 8px; }
+
+  .layer-btn { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; cursor: pointer; font-family: var(--font-ui); text-align: left; }
+  .layer-btn:hover { background: var(--surface-3); color: var(--text-primary); }
+  .layer-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+  .layer-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Diagram */
+  .diagram-container { min-width: 700px; display: flex; flex-direction: column; gap: 16px; }
+  .process-row { display: flex; gap: 16px; align-items: stretch; }
+  .process-box { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; flex: 1; min-width: 0; transition: all 0.2s; }
+  .process-box.highlight { border-color: var(--accent-blue); box-shadow: 0 0 12px rgba(96, 165, 250, 0.15); }
+  .process-box.dim { opacity: 0.3; }
+  .process-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .process-tag { font-size: 9px; padding: 2px 6px; border-radius: 3px; font-family: var(--font-mono); }
+  .service-list { display: flex; flex-direction: column; gap: 4px; }
+  .service { font-size: 12px; padding: 5px 8px; border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-secondary); font-family: var(--font-mono); display: flex; align-items: center; gap: 6px; transition: all 0.2s; cursor: default; }
+  .service.highlight { background: var(--surface-3); color: var(--text-primary); }
+  .service.dim { opacity: 0.3; }
+  .service-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .service-desc { font-size: 10px; color: var(--text-ghost); margin-left: auto; font-family: var(--font-ui); }
+
+  .arrow-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 0; color: var(--text-ghost); font-size: 11px; font-family: var(--font-mono); }
+  .arrow-row .arrow { font-size: 16px; }
+
+  .file-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .file-table th { text-align: left; color: var(--text-tertiary); font-weight: 500; padding: 4px 8px; border-bottom: 1px solid var(--border); font-size: 11px; }
+  .file-table td { padding: 4px 8px; color: var(--text-secondary); font-family: var(--font-mono); border-bottom: 1px solid var(--border-subtle, var(--border)); }
+  .file-table td:last-child { font-family: var(--font-ui); color: var(--text-tertiary); }
+  .file-table tr.highlight td { color: var(--text-primary); background: rgba(96, 165, 250, 0.05); }
+  .file-table tr.dim td { opacity: 0.3; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="controls">
+    <div class="section">
+      <h2>Focus Layer</h2>
+      <button class="layer-btn active" data-layer="all"><div class="layer-dot" style="background:var(--text-secondary)"></div>All layers</button>
+      <button class="layer-btn" data-layer="main"><div class="layer-dot" style="background:var(--accent-blue)"></div>Main process</button>
+      <button class="layer-btn" data-layer="ipc"><div class="layer-dot" style="background:var(--accent-yellow)"></div>IPC bridge</button>
+      <button class="layer-btn" data-layer="renderer"><div class="layer-dot" style="background:var(--accent-green)"></div>Renderer</button>
+      <button class="layer-btn" data-layer="ui"><div class="layer-dot" style="background:var(--accent-purple)"></div>@parlour/ui</button>
+      <button class="layer-btn" data-layer="chat"><div class="layer-dot" style="background:var(--accent-cyan)"></div>Chat lifecycle</button>
+      <button class="layer-btn" data-layer="mcp"><div class="layer-dot" style="background:var(--accent-red)"></div>MCP server</button>
+    </div>
+
+    <div class="section">
+      <h2>Key Types</h2>
+      <div style="font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);line-height:1.8">
+        <div><span style="color:var(--accent-blue)">Chat</span> { id, name, status, projects[], pinnedAt, parentId }</div>
+        <div><span style="color:var(--accent-green)">ProjectContext</span> { name, path, branch?, isGitRepo }</div>
+        <div><span style="color:var(--accent-yellow)">Schedule</span> { id, name, prompt, trigger, enabled }</div>
+        <div><span style="color:var(--accent-purple)">Settings</span> { llmCommand, maxChatDepth, projectRoots, ... }</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Data Flow</h2>
+      <div style="font-size:11px;color:var(--text-tertiary);line-height:1.6">
+        ChatRegistry owns chats. Mutations persist to disk and push to renderer via IPC. Renderer receives into Zustand. UI components are presentational (no store, no IPC).
+      </div>
+    </div>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-container" id="diagram"></div>
+  </div>
+</div>
+
+<div class="prompt-bar">
+  <div class="prompt-text" id="prompt-output"></div>
+  <button class="copy-btn" id="copy-btn">Copy</button>
+</div>
+
+<script>
+const state = { layer: 'all' };
+
+const LAYERS = {
+  main: ['ChatRegistry', 'PtyManager', 'GitService', 'ParlourMcpServer', 'TaskScheduler', 'parlour-dirs'],
+  ipc: ['ipc-channels', 'ipc.ts', 'preload'],
+  renderer: ['app-store', 'connected/*', 'hooks/*'],
+  ui: ['Sidebar', 'ChatItem', 'HeaderBar', 'Terminal', 'Settings', 'types.ts'],
+  chat: ['ChatRegistry', 'PtyManager', 'parlour-dirs', 'ipc.ts', 'app-store'],
+  mcp: ['ParlourMcpServer', 'ChatRegistry', 'TaskScheduler', 'parlour-dirs'],
+};
+
+function getServiceLayer(name) {
+  if (['ChatRegistry', 'PtyManager', 'GitService', 'ParlourMcpServer', 'TaskScheduler', 'parlour-dirs', 'index.ts'].includes(name)) return 'main';
+  if (['ipc-channels', 'ipc.ts', 'preload'].includes(name)) return 'ipc';
+  if (['app-store', 'connected/*', 'hooks/*'].includes(name)) return 'renderer';
+  if (['Sidebar', 'ChatItem', 'HeaderBar', 'Terminal', 'Settings', 'types.ts'].includes(name)) return 'ui';
+  return 'all';
+}
+
+const layerColors = { main: '#60a5fa', ipc: '#fbbf24', renderer: '#4ade80', ui: '#a78bfa', chat: '#22d3ee', mcp: '#f87171' };
+
+function isHighlighted(serviceName) {
+  if (state.layer === 'all') return true;
+  return (LAYERS[state.layer] || []).includes(serviceName);
+}
+
+function svcClass(name) {
+  if (state.layer === 'all') return 'service';
+  return 'service ' + (isHighlighted(name) ? 'highlight' : 'dim');
+}
+
+function boxClass(names) {
+  if (state.layer === 'all') return 'process-box';
+  const any = names.some(n => isHighlighted(n));
+  return 'process-box' + (any ? ' highlight' : ' dim');
+}
+
+function render() {
+  const d = document.getElementById('diagram');
+  let html = '';
+
+  // Main process
+  html += `<div class="process-row">`;
+  html += `<div class="${boxClass(['ChatRegistry', 'PtyManager', 'GitService', 'ParlourMcpServer', 'TaskScheduler', 'parlour-dirs', 'index.ts'])}">`;
+  html += `<div class="process-title"><span style="color:var(--accent-blue)">Main Process</span> <span class="process-tag" style="background:rgba(96,165,250,0.1);color:var(--accent-blue)">Node.js</span></div>`;
+  html += `<div class="service-list">`;
+  html += `<div class="${svcClass('ChatRegistry')}"><div class="service-dot" style="background:var(--accent-blue)"></div>ChatRegistry<span class="service-desc">chat lifecycle, state push, persistence</span></div>`;
+  html += `<div class="${svcClass('PtyManager')}"><div class="service-dot" style="background:var(--accent-blue)"></div>PtyManager<span class="service-desc">node-pty, buffer, title extraction</span></div>`;
+  html += `<div class="${svcClass('GitService')}"><div class="service-dot" style="background:var(--accent-blue)"></div>GitService<span class="service-desc">worktree, branch, status, diff</span></div>`;
+  html += `<div class="${svcClass('ParlourMcpServer')}"><div class="service-dot" style="background:var(--accent-red)"></div>ParlourMcpServer<span class="service-desc">HTTP MCP, 13 tools</span></div>`;
+  html += `<div class="${svcClass('TaskScheduler')}"><div class="service-dot" style="background:var(--accent-yellow)"></div>TaskScheduler<span class="service-desc">cron/one-time jobs</span></div>`;
+  html += `<div class="${svcClass('parlour-dirs')}"><div class="service-dot" style="background:var(--accent-cyan)"></div>parlour-dirs<span class="service-desc">chat dirs, AGENTS.md, MCP shims</span></div>`;
+  html += `</div></div></div>`;
+
+  // Arrow
+  html += `<div class="arrow-row"><span class="arrow">&darr;</span> IPC (ipc-channels.ts) <span class="arrow">&uarr;</span></div>`;
+
+  // Preload
+  html += `<div class="process-row">`;
+  html += `<div class="${boxClass(['preload', 'ipc-channels', 'ipc.ts'])}">`;
+  html += `<div class="process-title"><span style="color:var(--accent-yellow)">Preload</span> <span class="process-tag" style="background:rgba(251,191,36,0.1);color:var(--accent-yellow)">contextBridge</span></div>`;
+  html += `<div class="service-list">`;
+  html += `<div class="${svcClass('preload')}"><div class="service-dot" style="background:var(--accent-yellow)"></div>preload/index.ts<span class="service-desc">window.api exposure</span></div>`;
+  html += `<div class="${svcClass('ipc-channels')}"><div class="service-dot" style="background:var(--accent-yellow)"></div>shared/ipc-channels.ts<span class="service-desc">channel constants</span></div>`;
+  html += `</div></div></div>`;
+
+  // Arrow
+  html += `<div class="arrow-row"><span class="arrow">&darr;</span> window.api <span class="arrow">&uarr;</span></div>`;
+
+  // Renderer
+  html += `<div class="process-row">`;
+  html += `<div class="${boxClass(['app-store', 'connected/*', 'hooks/*'])}">`;
+  html += `<div class="process-title"><span style="color:var(--accent-green)">Renderer</span> <span class="process-tag" style="background:rgba(74,222,128,0.1);color:var(--accent-green)">React</span></div>`;
+  html += `<div class="service-list">`;
+  html += `<div class="${svcClass('app-store')}"><div class="service-dot" style="background:var(--accent-green)"></div>store/app-store.ts<span class="service-desc">Zustand state</span></div>`;
+  html += `<div class="${svcClass('connected/*')}"><div class="service-dot" style="background:var(--accent-green)"></div>connected/*<span class="service-desc">store-bound wrappers</span></div>`;
+  html += `<div class="${svcClass('hooks/*')}"><div class="service-dot" style="background:var(--accent-green)"></div>hooks/*<span class="service-desc">shortcuts, polling, schedules</span></div>`;
+  html += `</div></div>`;
+
+  html += `<div class="${boxClass(['Sidebar', 'ChatItem', 'HeaderBar', 'Terminal', 'Settings', 'types.ts'])}">`;
+  html += `<div class="process-title"><span style="color:var(--accent-purple)">@parlour/ui</span> <span class="process-tag" style="background:rgba(167,139,250,0.1);color:var(--accent-purple)">presentational</span></div>`;
+  html += `<div class="service-list">`;
+  html += `<div class="${svcClass('Sidebar')}"><div class="service-dot" style="background:var(--accent-purple)"></div>Sidebar<span class="service-desc">chat list, pinned/recent</span></div>`;
+  html += `<div class="${svcClass('ChatItem')}"><div class="service-dot" style="background:var(--accent-purple)"></div>ChatItem<span class="service-desc">chat row, status, actions</span></div>`;
+  html += `<div class="${svcClass('Terminal')}"><div class="service-dot" style="background:var(--accent-purple)"></div>TerminalPanel<span class="service-desc">xterm.js surface</span></div>`;
+  html += `<div class="${svcClass('types.ts')}"><div class="service-dot" style="background:var(--accent-purple)"></div>types.ts<span class="service-desc">Chat, ProjectContext, Settings</span></div>`;
+  html += `</div></div></div>`;
+
+  // File table
+  html += `<div style="margin-top:16px">`;
+  html += `<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-tertiary);font-weight:500;margin-bottom:8px">Key Files</div>`;
+  html += `<table class="file-table"><thead><tr><th>File</th><th>Role</th></tr></thead><tbody>`;
+
+  const files = [
+    ['index.ts', 'App entry, window, service init', 'main'],
+    ['chat-registry.ts', 'Chat/Link lifecycle, persistence, state push', 'main'],
+    ['pty-manager.ts', 'PTY spawn, buffer, title extraction', 'main'],
+    ['mcp-server.ts', 'HTTP MCP server, agent tools', 'mcp'],
+    ['parlour-dirs.ts', 'Chat dirs, AGENTS.md, MCP config, shims', 'main'],
+    ['task-scheduler.ts', 'Cron/one-time job execution', 'main'],
+    ['ipc-channels.ts', 'IPC channel constants', 'ipc'],
+    ['preload/index.ts', 'contextBridge \u2192 window.api', 'ipc'],
+    ['app-store.ts', 'Zustand store, actions, persistence', 'renderer'],
+    ['connected/Sidebar.tsx', 'Store-bound sidebar wrapper', 'renderer'],
+    ['Sidebar.tsx', 'Chat list UI (pinned/recent)', 'ui'],
+    ['ChatItem.tsx', 'Chat row component', 'ui'],
+    ['types.ts', 'Chat, ProjectContext, Settings, ChatMode', 'ui'],
+  ];
+
+  files.forEach(([file, role, layer]) => {
+    let cls = '';
+    if (state.layer !== 'all') {
+      cls = (LAYERS[state.layer] || []).some(s => file.includes(s) || s.includes(file.replace('.tsx','').replace('.ts',''))) ? 'highlight' : 'dim';
+    }
+    html += `<tr class="${cls}"><td>${file}</td><td>${role}</td></tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  d.innerHTML = html;
+  updatePrompt();
+}
+
+function updatePrompt() {
+  const el = document.getElementById('prompt-output');
+  if (state.layer === 'all') {
+    el.textContent = 'Parlour architecture: Main process (ChatRegistry, PtyManager, MCP) \u2194 IPC \u2194 Renderer (Zustand) \u2192 @parlour/ui (presentational). ChatRegistry owns chat lifecycle and pushes state to renderer.';
+  } else {
+    const descriptions = {
+      main: 'Main process services: ChatRegistry owns chat lifecycle and persistence. PtyManager handles terminal processes. parlour-dirs manages chat directories, AGENTS.md generation, and MCP shim scripts.',
+      ipc: 'IPC bridge: shared/ipc-channels.ts defines constants. main/ipc.ts handles requests. preload/index.ts exposes window.api via contextBridge.',
+      renderer: 'Renderer: Zustand store receives chat state pushes from main. Connected wrappers bind @parlour/ui components to the store. Hooks handle shortcuts and polling.',
+      ui: '@parlour/ui: Presentational components with no store or IPC dependencies. Sidebar shows pinned/recent flat list. ChatItem renders individual chat rows with status and project tags.',
+      chat: 'Chat lifecycle: ChatRegistry creates dir \u2192 writes AGENTS.md + MCP config \u2192 spawns PTY \u2192 registers exit listener. On resume: regenerates MCP config, spawns fresh PTY with CLI resume flags.',
+      mcp: 'MCP server: HTTP on random localhost port. 13 tools for project management, dispatch, and scheduling. MCP shim scripts on PATH catch LLMs trying tools as bash commands.',
+    };
+    el.textContent = descriptions[state.layer] || '';
+  }
+}
+
+// Layer buttons
+document.querySelectorAll('.layer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.layer-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.layer = btn.dataset.layer;
+    render();
+  });
+});
+
+// Copy button
+document.getElementById('copy-btn').addEventListener('click', function() {
+  navigator.clipboard.writeText(document.getElementById('prompt-output').textContent);
+  this.textContent = 'Copied!';
+  setTimeout(() => { this.textContent = 'Copy'; }, 1500);
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Progressive Source Discovery</title>
+<style>
+  :root {
+    --bg: #13141b;
+    --surface-1: #1a1b24;
+    --surface-2: #1e1f2a;
+    --surface-3: #262733;
+    --surface-4: #2e2f3d;
+    --border: #333446;
+    --border-subtle: #2a2b3a;
+    --text-primary: #e2e4ed;
+    --text-secondary: #a0a3b5;
+    --text-tertiary: #6b6e82;
+    --text-ghost: #4a4d5e;
+    --accent-blue: #60a5fa;
+    --accent-green: #4ade80;
+    --accent-red: #f87171;
+    --accent-yellow: #fbbf24;
+    --accent-purple: #a78bfa;
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --font-ui: system-ui, -apple-system, sans-serif;
+    --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text-primary); font-family: var(--font-ui); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .layout { display: flex; flex: 1; overflow: hidden; }
+  .controls { width: 340px; flex-shrink: 0; background: var(--surface-1); border-right: 1px solid var(--border); overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+  .preview { flex: 1; display: flex; gap: 0; overflow: hidden; }
+  .preview-sidebar { width: 260px; flex-shrink: 0; background: var(--surface-2); overflow-y: auto; display: flex; flex-direction: column; }
+  .preview-json { flex: 1; background: var(--surface-1); overflow-y: auto; padding: 16px; border-left: 1px solid var(--border); }
+
+  .prompt-bar { flex-shrink: 0; background: var(--surface-1); border-top: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .prompt-text { flex: 1; font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); line-height: 1.5; white-space: pre-wrap; }
+  .copy-btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--text-secondary); font-family: var(--font-ui); font-size: 12px; cursor: pointer; white-space: nowrap; }
+  .copy-btn:hover { background: var(--surface-4); color: var(--text-primary); }
+
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 500; }
+  .section { display: flex; flex-direction: column; gap: 8px; }
+
+  .preset-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .preset-btn { padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; cursor: pointer; font-family: var(--font-ui); }
+  .preset-btn:hover { background: var(--surface-3); color: var(--text-primary); }
+  .preset-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+  .chat-editor { display: flex; flex-direction: column; gap: 6px; }
+  .chat-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .chat-card.selected { border-color: var(--accent-blue); }
+  .chat-card-header { display: flex; align-items: center; gap: 8px; }
+  .chat-card-name { flex: 1; font-size: 13px; color: var(--text-primary); font-weight: 500; }
+  .chat-card-status { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .chat-card-projects { display: flex; flex-wrap: wrap; gap: 4px; }
+  .project-tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: var(--surface-3); color: var(--text-tertiary); font-family: var(--font-mono); display: flex; align-items: center; gap: 4px; }
+  .project-tag .remove { cursor: pointer; color: var(--text-ghost); font-size: 12px; line-height: 1; }
+  .project-tag .remove:hover { color: var(--accent-red); }
+  .project-tag.git { color: var(--accent-blue); background: rgba(96, 165, 250, 0.1); }
+  .project-tag.dir { color: var(--accent-yellow); background: rgba(251, 191, 36, 0.1); }
+  .add-project-row { display: flex; gap: 4px; }
+  .add-project-input { flex: 1; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--text-primary); font-size: 11px; font-family: var(--font-mono); outline: none; }
+  .add-project-input::placeholder { color: var(--text-ghost); }
+  .add-btn, .remove-chat-btn { padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-3); color: var(--text-secondary); font-size: 11px; cursor: pointer; font-family: var(--font-ui); }
+  .add-btn:hover { background: var(--surface-4); color: var(--text-primary); }
+  .remove-chat-btn:hover { background: rgba(248, 113, 113, 0.1); color: var(--accent-red); border-color: var(--accent-red); }
+  .new-chat-btn { padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; cursor: pointer; font-family: var(--font-ui); width: 100%; }
+  .new-chat-btn:hover { background: var(--surface-3); color: var(--text-primary); }
+
+  .toggle-row { display: flex; align-items: center; gap: 8px; }
+  .toggle-label { font-size: 12px; color: var(--text-secondary); flex: 1; }
+  .toggle { width: 32px; height: 18px; border-radius: 9px; background: var(--surface-4); cursor: pointer; position: relative; transition: background 0.15s; flex-shrink: 0; }
+  .toggle.on { background: var(--accent-blue); }
+  .toggle::after { content: ''; position: absolute; width: 14px; height: 14px; border-radius: 50%; background: white; top: 2px; left: 2px; transition: transform 0.15s; }
+  .toggle.on::after { transform: translateX(14px); }
+
+  /* Sidebar preview */
+  .sb-title { height: 38px; flex-shrink: 0; }
+  .sb-new-chat { margin: 0 12px; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font-size: 12px; font-family: var(--font-ui); display: flex; align-items: center; gap: 6px; }
+  .sb-scroll { flex: 1; overflow-y: auto; padding: 6px 0; display: flex; flex-direction: column; gap: 4px; }
+  .sb-label { padding: 6px 28px 3px; color: var(--text-tertiary); font-size: 11px; font-family: var(--font-ui); }
+  .sb-divider { height: 1px; background: var(--border-subtle); margin: 4px 16px; }
+  .sb-chat { padding: 8px 16px; margin: 0 8px; border-radius: var(--radius-md); cursor: pointer; transition: background 0.1s; }
+  .sb-chat:hover { background: var(--surface-3); }
+  .sb-chat.active { background: var(--surface-1); }
+  .sb-chat-name { font-size: 13px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb-chat.active .sb-chat-name { color: var(--text-primary); }
+  .sb-chat-meta { font-size: 11px; color: var(--text-tertiary); display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+  .sb-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .sb-badge { font-size: 9px; font-family: var(--font-mono); color: var(--text-tertiary); background: var(--surface-4); padding: 0 4px; border-radius: 3px; }
+  .sb-projects { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+  .sb-project-tag { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-family: var(--font-mono); }
+  .sb-project-tag.git { color: var(--accent-blue); background: rgba(96, 165, 250, 0.08); }
+  .sb-project-tag.dir { color: var(--accent-yellow); background: rgba(251, 191, 36, 0.08); }
+  .sb-actions { flex-shrink: 0; padding: 10px 12px; border-top: 1px solid var(--border-subtle); display: flex; flex-direction: column; gap: 4px; }
+  .sb-action { padding: 6px 10px; color: var(--text-secondary); font-size: 12px; font-family: var(--font-ui); display: flex; align-items: center; gap: 8px; }
+
+  /* JSON view */
+  .json-key { color: var(--accent-blue); }
+  .json-string { color: var(--accent-green); }
+  .json-number { color: var(--accent-yellow); }
+  .json-bool { color: var(--accent-purple); }
+  .json-null { color: var(--text-ghost); }
+  .json-block { font-family: var(--font-mono); font-size: 12px; line-height: 1.6; white-space: pre; color: var(--text-secondary); }
+  .json-section { margin-bottom: 16px; }
+  .json-section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-family: var(--font-ui); font-weight: 500; margin-bottom: 6px; }
+
+  /* Event log */
+  .event-log { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
+  .event { font-size: 11px; font-family: var(--font-mono); padding: 4px 8px; border-radius: var(--radius-sm); background: var(--surface-2); display: flex; align-items: flex-start; gap: 6px; }
+  .event-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .event-text { color: var(--text-secondary); line-height: 1.4; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <div class="controls">
+    <div class="section">
+      <h2>Presets</h2>
+      <div class="preset-grid" id="presets"></div>
+    </div>
+
+    <div class="section">
+      <h2>Chats</h2>
+      <div class="chat-editor" id="chat-editor"></div>
+      <button class="new-chat-btn" id="add-chat-btn">+ New Chat</button>
+    </div>
+
+    <div class="section">
+      <h2>Options</h2>
+      <div class="toggle-row">
+        <span class="toggle-label">Show project tags in sidebar</span>
+        <div class="toggle" id="toggle-tags"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Event Log</h2>
+      <div class="event-log" id="event-log"></div>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="preview-sidebar" id="sidebar-preview"></div>
+    <div class="preview-json" id="json-preview"></div>
+  </div>
+</div>
+
+<div class="prompt-bar">
+  <div class="prompt-text" id="prompt-output"></div>
+  <button class="copy-btn" id="copy-btn">Copy</button>
+</div>
+
+<script>
+const DEFAULTS = { showTags: true };
+let nextId = 1;
+const uid = () => `chat-${nextId++}`;
+
+const state = {
+  chats: [],
+  activeChatId: null,
+  showTags: DEFAULTS.showTags,
+  events: [],
+};
+
+function addEvent(action, detail, color = '#60a5fa') {
+  state.events.unshift({ action, detail, color, time: new Date().toLocaleTimeString() });
+  if (state.events.length > 50) state.events.length = 50;
+}
+
+const PRESETS = {
+  'Empty': () => {
+    state.chats = [];
+    state.activeChatId = null;
+    addEvent('Preset: Empty', 'No chats. Fresh start.', '#a78bfa');
+  },
+  'Single Chat': () => {
+    const id = uid();
+    state.chats = [
+      { id, name: 'Fix login bug', status: 'active', projects: [], pinnedAt: null, lastActiveAt: Date.now(), llmCommand: 'claude' },
+    ];
+    state.activeChatId = id;
+    addEvent('Preset: Single Chat', 'One standalone chat, no sources yet.', '#60a5fa');
+  },
+  'After open_dir': () => {
+    const id1 = uid(), id2 = uid();
+    state.chats = [
+      { id: id1, name: 'Fix login bug', status: 'active', projects: [
+        { name: 'personal-site', path: '~/.parlour/chats/' + id1 + '/projects/personal-site', branch: 'fix/login', isGitRepo: true },
+      ], pinnedAt: null, lastActiveAt: Date.now(), llmCommand: 'claude' },
+      { id: id2, name: 'Update README', status: 'idle', projects: [], pinnedAt: null, lastActiveAt: Date.now() - 60000, llmCommand: 'claude' },
+    ];
+    state.activeChatId = id1;
+    addEvent('Preset: After open_dir', 'First chat called open_dir for personal-site. Second chat is still standalone.', '#4ade80');
+  },
+  'Multi-Source': () => {
+    const id1 = uid(), id2 = uid(), id3 = uid();
+    state.chats = [
+      { id: id1, name: 'Redesign homepage', status: 'active', projects: [
+        { name: 'personal-site', path: '~/.parlour/chats/' + id1 + '/projects/personal-site', branch: 'redesign', isGitRepo: true },
+        { name: 'design-system', path: '~/.parlour/chats/' + id1 + '/projects/design-system', branch: 'main', isGitRepo: true },
+      ], pinnedAt: Date.now() - 5000, lastActiveAt: Date.now(), llmCommand: 'claude' },
+      { id: id2, name: 'API migration', status: 'done', projects: [
+        { name: 'api-server', path: '~/.parlour/chats/' + id2 + '/projects/api-server', branch: 'v2-migration', isGitRepo: true },
+      ], pinnedAt: null, lastActiveAt: Date.now() - 120000, llmCommand: 'gemini' },
+      { id: id3, name: 'Research notes', status: 'idle', projects: [
+        { name: 'obsidian-vault', path: '~/.parlour/chats/' + id3 + '/projects/obsidian-vault', isGitRepo: false },
+      ], pinnedAt: null, lastActiveAt: Date.now() - 300000, llmCommand: 'claude' },
+    ];
+    state.activeChatId = id1;
+    addEvent('Preset: Multi-Source', 'Chats with git repos and directories. "Redesign homepage" has 2 sources.', '#fbbf24');
+  },
+  'Team Sprint': () => {
+    const ids = Array.from({ length: 5 }, () => uid());
+    state.chats = [
+      { id: ids[0], name: 'Auth refactor', status: 'active', projects: [
+        { name: 'api-server', path: '~/.parlour/chats/' + ids[0] + '/projects/api-server', branch: 'auth-v2', isGitRepo: true },
+        { name: 'web-app', path: '~/.parlour/chats/' + ids[0] + '/projects/web-app', branch: 'auth-v2', isGitRepo: true },
+      ], pinnedAt: Date.now(), lastActiveAt: Date.now(), llmCommand: 'claude' },
+      { id: ids[1], name: 'Fix CI pipeline', status: 'done', projects: [
+        { name: 'api-server', path: '~/.parlour/chats/' + ids[1] + '/projects/api-server', branch: 'fix-ci', isGitRepo: true },
+      ], pinnedAt: null, lastActiveAt: Date.now() - 60000, llmCommand: 'claude' },
+      { id: ids[2], name: 'Design review', status: 'idle', projects: [
+        { name: 'figma-exports', path: '~/.parlour/chats/' + ids[2] + '/projects/figma-exports', isGitRepo: false },
+        { name: 'web-app', path: '~/.parlour/chats/' + ids[2] + '/projects/web-app', branch: 'main', isGitRepo: true },
+      ], pinnedAt: null, lastActiveAt: Date.now() - 180000, llmCommand: 'gemini' },
+      { id: ids[3], name: 'DB migration plan', status: 'active', projects: [
+        { name: 'api-server', path: '~/.parlour/chats/' + ids[3] + '/projects/api-server', branch: 'db-v3', isGitRepo: true },
+      ], pinnedAt: null, lastActiveAt: Date.now() - 30000, llmCommand: 'claude' },
+      { id: ids[4], name: 'Standup notes', status: 'idle', projects: [], pinnedAt: null, lastActiveAt: Date.now() - 600000, llmCommand: 'claude' },
+    ];
+    state.activeChatId = ids[0];
+    addEvent('Preset: Team Sprint', '5 chats across multiple sources. Pinned, active, done, and standalone.', '#a78bfa');
+  },
+};
+
+function getChatMode(chat) {
+  const repos = (chat.projects || []).filter(p => p.isGitRepo);
+  if (repos.length === 0) return 'standalone';
+  if (repos.length === 1) return 'repo-attached';
+  return 'multi-repo';
+}
+
+function relativeTime(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  return Math.floor(diff / 86400000) + 'd ago';
+}
+
+const statusColors = { active: '#60a5fa', idle: '#4a4d5e', done: '#4ade80', error: '#f87171' };
+
+function updateAll() {
+  renderControls();
+  renderSidebar();
+  renderJson();
+  updatePrompt();
+}
+
+function renderControls() {
+  // Presets
+  const presetsEl = document.getElementById('presets');
+  presetsEl.innerHTML = Object.keys(PRESETS).map(name =>
+    `<button class="preset-btn" data-preset="${name}">${name}</button>`
+  ).join('');
+  presetsEl.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => { PRESETS[btn.dataset.preset](); updateAll(); });
+  });
+
+  // Chat editor
+  const editor = document.getElementById('chat-editor');
+  editor.innerHTML = state.chats.map((chat, i) => `
+    <div class="chat-card ${chat.id === state.activeChatId ? 'selected' : ''}" data-id="${chat.id}">
+      <div class="chat-card-header">
+        <div class="chat-card-status" style="background:${statusColors[chat.status]}"></div>
+        <div class="chat-card-name">${chat.name}</div>
+        <button class="remove-chat-btn" data-idx="${i}">&times;</button>
+      </div>
+      <div class="chat-card-projects">
+        ${(chat.projects || []).map((p, pi) => `
+          <span class="project-tag ${p.isGitRepo ? 'git' : 'dir'}">${p.name}${p.branch ? ':' + p.branch : ''}<span class="remove" data-chat="${i}" data-proj="${pi}">&times;</span></span>
+        `).join('')}
+      </div>
+      <div class="add-project-row">
+        <input class="add-project-input" placeholder="project name" data-idx="${i}" />
+        <button class="add-btn" data-idx="${i}" data-git="true">+git</button>
+        <button class="add-btn" data-idx="${i}" data-git="false">+dir</button>
+      </div>
+    </div>
+  `).join('');
+
+  editor.querySelectorAll('.chat-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.remove-chat-btn, .remove, .add-btn, .add-project-input')) return;
+      state.activeChatId = card.dataset.id;
+      updateAll();
+    });
+  });
+
+  editor.querySelectorAll('.remove-chat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const removed = state.chats.splice(idx, 1)[0];
+      if (state.activeChatId === removed.id) state.activeChatId = state.chats[0]?.id || null;
+      addEvent('Delete chat', removed.name, '#f87171');
+      updateAll();
+    });
+  });
+
+  editor.querySelectorAll('.project-tag .remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ci = parseInt(btn.dataset.chat), pi = parseInt(btn.dataset.proj);
+      const removed = state.chats[ci].projects.splice(pi, 1)[0];
+      addEvent('Remove source', `${removed.name} from "${state.chats[ci].name}"`, '#f87171');
+      updateAll();
+    });
+  });
+
+  editor.querySelectorAll('.add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const input = editor.querySelector(`.add-project-input[data-idx="${idx}"]`);
+      const name = input.value.trim();
+      if (!name) return;
+      const isGit = btn.dataset.git === 'true';
+      const chat = state.chats[idx];
+      chat.projects.push({ name, path: `~/.parlour/chats/${chat.id}/projects/${name}`, branch: isGit ? 'main' : undefined, isGitRepo: isGit });
+      chat.lastActiveAt = Date.now();
+      addEvent('open_dir', `Added ${isGit ? 'repo' : 'directory'} "${name}" to "${chat.name}"`, '#4ade80');
+      updateAll();
+    });
+  });
+
+  // Toggle
+  const toggleTags = document.getElementById('toggle-tags');
+  toggleTags.className = 'toggle' + (state.showTags ? ' on' : '');
+  toggleTags.onclick = () => { state.showTags = !state.showTags; updateAll(); };
+
+  // Events
+  const log = document.getElementById('event-log');
+  log.innerHTML = state.events.map(e => `
+    <div class="event"><div class="event-dot" style="background:${e.color}"></div><div class="event-text"><strong>${e.action}</strong> ${e.detail}</div></div>
+  `).join('');
+}
+
+function renderSidebar() {
+  const el = document.getElementById('sidebar-preview');
+  const pinned = state.chats.filter(c => c.pinnedAt != null).sort((a, b) => a.pinnedAt - b.pinnedAt);
+  const unpinned = state.chats.filter(c => c.pinnedAt == null).sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+
+  let html = '<div class="sb-title"></div>';
+  html += '<div class="sb-new-chat"><span style="font-size:14px">+</span> New chat</div>';
+  html += '<div class="sb-scroll">';
+
+  if (state.chats.length === 0) {
+    html += '<div style="color:var(--text-tertiary);font-size:13px;padding:20px;font-family:var(--font-ui)">Press \u2318N to start a new chat.</div>';
+  }
+
+  if (pinned.length > 0) {
+    html += '<div class="sb-label">Pinned</div>';
+    pinned.forEach(c => { html += renderSidebarChat(c); });
+  }
+  if (pinned.length > 0 && unpinned.length > 0) {
+    html += '<div class="sb-divider"></div>';
+  }
+  if (unpinned.length > 0) {
+    html += '<div class="sb-label">Recent</div>';
+    unpinned.forEach(c => { html += renderSidebarChat(c); });
+  }
+
+  html += '</div>';
+  html += '<div class="sb-actions">';
+  html += '<div class="sb-action"><span style="opacity:0.5">&#9776;</span> Tasks</div>';
+  html += '<div style="height:1px;background:var(--border-subtle);margin:2px -4px"></div>';
+  html += '<div class="sb-action"><span style="opacity:0.5">&#9881;</span> Settings</div>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  el.querySelectorAll('.sb-chat').forEach(chatEl => {
+    chatEl.addEventListener('click', () => {
+      state.activeChatId = chatEl.dataset.id;
+      updateAll();
+    });
+  });
+}
+
+function renderSidebarChat(chat) {
+  const isActive = chat.id === state.activeChatId;
+  let html = `<div class="sb-chat ${isActive ? 'active' : ''}" data-id="${chat.id}">`;
+  html += `<div class="sb-chat-name">${chat.name}</div>`;
+  html += `<div class="sb-chat-meta">`;
+  html += `<div class="sb-dot" style="background:${statusColors[chat.status]}"></div>`;
+  html += `<span class="sb-badge">${chat.llmCommand || 'claude'}</span>`;
+  html += `<span>${relativeTime(chat.lastActiveAt)}</span>`;
+  html += `</div>`;
+  if (state.showTags && chat.projects && chat.projects.length > 0) {
+    html += '<div class="sb-projects">';
+    chat.projects.forEach(p => {
+      html += `<span class="sb-project-tag ${p.isGitRepo ? 'git' : 'dir'}">${p.name}</span>`;
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderJson() {
+  const el = document.getElementById('json-preview');
+  let html = '';
+
+  // Chat data
+  html += '<div class="json-section"><div class="json-section-label">Chat Data Model</div><div class="json-block">';
+  if (state.chats.length === 0) {
+    html += '<span class="json-null">// No chats yet</span>';
+  } else {
+    const chat = state.chats.find(c => c.id === state.activeChatId) || state.chats[0];
+    const mode = getChatMode(chat);
+    let lines = [];
+    lines.push(`{`);
+    lines.push(`  <span class="json-key">"id"</span>: <span class="json-string">"${chat.id}"</span>,`);
+    lines.push(`  <span class="json-key">"name"</span>: <span class="json-string">"${chat.name}"</span>,`);
+    lines.push(`  <span class="json-key">"status"</span>: <span class="json-string">"${chat.status}"</span>,`);
+    lines.push(`  <span class="json-key">"pinnedAt"</span>: ${chat.pinnedAt ? `<span class="json-number">${chat.pinnedAt}</span>` : '<span class="json-null">null</span>'},`);
+    lines.push(`  <span class="json-key">"llmCommand"</span>: <span class="json-string">"${chat.llmCommand || 'claude'}"</span>,`);
+    lines.push(`  <span class="json-key">"getChatMode()"</span>: <span class="json-string">"${mode}"</span>  <span style="color:var(--text-ghost)">// derived, not stored</span>`);
+    lines.push(`  <span class="json-key">"projects"</span>: [`);
+    if (chat.projects && chat.projects.length > 0) {
+      chat.projects.forEach((p, i) => {
+        const comma = i < chat.projects.length - 1 ? ',' : '';
+        lines.push(`    {`);
+        lines.push(`      <span class="json-key">"name"</span>: <span class="json-string">"${p.name}"</span>,`);
+        lines.push(`      <span class="json-key">"path"</span>: <span class="json-string">"${p.path}"</span>,`);
+        if (p.branch) lines.push(`      <span class="json-key">"branch"</span>: <span class="json-string">"${p.branch}"</span>,`);
+        lines.push(`      <span class="json-key">"isGitRepo"</span>: <span class="json-bool">${p.isGitRepo}</span>`);
+        lines.push(`    }${comma}`);
+      });
+    }
+    lines.push(`  ]`);
+    lines.push(`}`);
+    html += lines.join('\n');
+  }
+  html += '</div></div>';
+
+  // Sidebar derivation
+  html += '<div class="json-section"><div class="json-section-label">Sidebar Derivation</div><div class="json-block">';
+  const pinned = state.chats.filter(c => c.pinnedAt != null);
+  const unpinned = state.chats.filter(c => c.pinnedAt == null);
+  let dlines = [];
+  dlines.push(`<span style="color:var(--text-ghost)">// Sidebar groups by pin status, sorted by time</span>`);
+  dlines.push(`<span class="json-key">pinned</span>: [${pinned.map(c => `<span class="json-string">"${c.name}"</span>`).join(', ')}]  <span style="color:var(--text-ghost)">// sorted by pinnedAt asc</span>`);
+  dlines.push(`<span class="json-key">unpinned</span>: [${unpinned.sort((a,b) => b.lastActiveAt - a.lastActiveAt).map(c => `<span class="json-string">"${c.name}"</span>`).join(', ')}]  <span style="color:var(--text-ghost)">// sorted by lastActiveAt desc</span>`);
+  dlines.push('');
+  dlines.push(`<span style="color:var(--text-ghost)">// Mode derivation (from projects[])</span>`);
+  state.chats.forEach(c => {
+    const mode = getChatMode(c);
+    const modeColor = mode === 'standalone' ? 'var(--text-ghost)' : mode === 'repo-attached' ? 'var(--accent-blue)' : 'var(--accent-yellow)';
+    dlines.push(`<span class="json-string">"${c.name}"</span> \u2192 <span style="color:${modeColor}">${mode}</span>  (${(c.projects||[]).length} source${(c.projects||[]).length !== 1 ? 's' : ''})`);
+  });
+  html += dlines.join('\n');
+  html += '</div></div>';
+
+  el.innerHTML = html;
+}
+
+function updatePrompt() {
+  const el = document.getElementById('prompt-output');
+  const parts = [];
+
+  const total = state.chats.length;
+  const withProjects = state.chats.filter(c => (c.projects||[]).length > 0).length;
+  const standalone = total - withProjects;
+
+  if (total === 0) {
+    el.textContent = 'No chats configured. Use a preset or add chats to explore the data model.';
+    return;
+  }
+
+  parts.push(`${total} chat${total > 1 ? 's' : ''}: ${withProjects} with sources, ${standalone} standalone.`);
+
+  const allProjects = new Set();
+  state.chats.forEach(c => (c.projects || []).forEach(p => allProjects.add(p.name)));
+  if (allProjects.size > 0) {
+    parts.push(`Sources discovered via open_dir: ${[...allProjects].join(', ')}.`);
+  }
+
+  const multiSourceChats = state.chats.filter(c => (c.projects||[]).length > 1);
+  if (multiSourceChats.length > 0) {
+    parts.push(`${multiSourceChats.length} chat${multiSourceChats.length > 1 ? 's' : ''} span${multiSourceChats.length === 1 ? 's' : ''} multiple sources.`);
+  }
+
+  parts.push('Sidebar shows Pinned/Recent flat list. Each chat\'s projects[] tracks sources accumulated via open_dir.');
+
+  el.textContent = parts.join(' ');
+}
+
+// Add chat button
+document.getElementById('add-chat-btn').addEventListener('click', () => {
+  const id = uid();
+  const names = ['Debug performance', 'Write tests', 'Refactor auth', 'Update docs', 'Fix flaky CI', 'Code review', 'Spike caching', 'Migration plan'];
+  const name = names[Math.floor(Math.random() * names.length)];
+  state.chats.push({ id, name, status: 'active', projects: [], pinnedAt: null, lastActiveAt: Date.now(), llmCommand: 'claude' });
+  state.activeChatId = id;
+  addEvent('New chat', `Created "${name}" (standalone)`, '#60a5fa');
+  updateAll();
+});
+
+// Copy button
+document.getElementById('copy-btn').addEventListener('click', function() {
+  navigator.clipboard.writeText(document.getElementById('prompt-output').textContent);
+  this.textContent = 'Copied!';
+  setTimeout(() => { this.textContent = 'Copy'; }, 1500);
+});
+
+// Init with After open_dir preset
+PRESETS['After open_dir']();
+updateAll();
+</script>
+</body>
+</html>

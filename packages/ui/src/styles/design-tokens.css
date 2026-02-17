@@ -14,6 +14,7 @@
   --surface-2: #191a1c;
   --surface-3: #1e1f21;
   --surface-4: #27282b;
+  --surface-5: #303136;
 
   /* ═══════════════════════════════════════════════════════
      BORDERS — three tiers of visibility
@@ -153,6 +154,7 @@
   --surface-2: #f0f0f2;
   --surface-3: #e8e8eb;
   --surface-4: #dddde2;
+  --surface-5: #d2d2d8;
 
   --border-subtle: #e4e4e8;
   --border-default: #d4d4da;
