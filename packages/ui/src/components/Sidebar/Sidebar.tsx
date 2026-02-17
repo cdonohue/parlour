@@ -1,7 +1,6 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Settings, Plus, Pin, PinOff, ListTodo, Wand2 } from 'lucide-react'
+import { Settings, Plus, ListTodo } from 'lucide-react'
 import type { Chat, Schedule, ConfirmDialogState, Keybindings } from '../../types'
 import { formatHotkey } from '../../utils/format-hotkey'
 import { HStack, VStack } from '../../primitives/Stack/Stack'
@@ -54,24 +53,6 @@ export function Sidebar({
   defaultLlmCommand = 'claude',
 }: SidebarProps) {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null)
-  const [menuState, setMenuState] = useState<{ chatId: string; x: number; y: number } | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  const openMenu = useCallback((chatId: string, anchor: HTMLElement) => {
-    const rect = anchor.getBoundingClientRect()
-    setMenuState({ chatId, x: rect.right, y: rect.bottom + 4 })
-  }, [])
-
-  const closeMenu = useCallback(() => setMenuState(null), [])
-
-  useEffect(() => {
-    if (!menuState) return
-    const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeMenu()
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [menuState, closeMenu])
 
   const rootChats = useMemo(() => chats.filter((c) => !c.parentId), [chats])
   const pinned = useMemo(() => rootChats.filter((c) => c.pinnedAt != null).sort((a, b) => a.pinnedAt! - b.pinnedAt!), [rootChats])
@@ -114,6 +95,7 @@ export function Sidebar({
 
   const renderChat = useCallback((chat: Chat, depth: number) => {
     const children = childMap.get(chat.id) ?? []
+    const canAddChild = depth < maxChatDepth && !!onNewChildChat
 
     return (
       <ChatItem
@@ -122,12 +104,13 @@ export function Sidebar({
         isActive={chat.id === activeChatId}
         isUnread={unreadChatIds.has(chat.id)}
         depth={depth}
-        menuOpen={menuState?.chatId === chat.id}
         defaultLlmCommand={defaultLlmCommand}
+        canAddChild={canAddChild}
         onSelect={() => onSelectChat(chat.id)}
         onDelete={(e) => handleDeleteChat(e, chat)}
-        onOpenMenu={(anchor) => openMenu(chat.id, anchor)}
-        onCloseMenu={closeMenu}
+        onAddChild={canAddChild ? (e) => onNewChildChat!(chat.id, { withDialog: e.shiftKey }) : undefined}
+        onPin={() => onPinChat(chat.id)}
+        onUnpin={() => onUnpinChat(chat.id)}
       >
         {children.length > 0 && (
           <VStack gap={2} className={styles.childrenGroup} style={{ '--nest-depth': depth + 1 } as React.CSSProperties}>
@@ -140,7 +123,7 @@ export function Sidebar({
         )}
       </ChatItem>
     )
-  }, [activeChatId, unreadChatIds, childMap, defaultLlmCommand, onSelectChat, handleDeleteChat, menuState, closeMenu, openMenu])
+  }, [activeChatId, unreadChatIds, childMap, defaultLlmCommand, maxChatDepth, onSelectChat, handleDeleteChat, onNewChildChat, onPinChat, onUnpinChat])
 
   return (
     <VStack className={styles.sidebar} gap={3}>
@@ -200,39 +183,6 @@ export function Sidebar({
           onCancel={() => setConfirmDialog(null)}
         />
       )}
-
-      {menuState && (() => {
-        const chat = chats.find((c) => c.id === menuState.chatId)
-        if (!chat) return null
-        const depth = chat.parentId ? (chats.find((c) => c.id === chat.parentId)?.parentId ? 2 : 1) : 0
-        const canAddChild = depth < maxChatDepth && !!onNewChildChat
-        const isRoot = depth === 0
-        return createPortal(
-          <div ref={menuRef} className={styles.chatMenu} style={{ left: menuState.x, top: menuState.y }} onClick={(e) => e.stopPropagation()}>
-            {canAddChild && (
-              <button className={styles.menuItem} onClick={(e) => { closeMenu(); onNewChildChat(chat.id, { withDialog: e.shiftKey }) }}>
-                <Plus size={10} /> Add child
-              </button>
-            )}
-            {onRetitleChat && (
-              <button className={styles.menuItem} onClick={() => { closeMenu(); onRetitleChat(chat.id) }}>
-                <Wand2 size={10} /> Retitle
-              </button>
-            )}
-            {isRoot && chat.pinnedAt != null && (
-              <button className={styles.menuItem} onClick={() => { closeMenu(); onUnpinChat(chat.id) }}>
-                <PinOff size={10} /> Unpin
-              </button>
-            )}
-            {isRoot && chat.pinnedAt == null && (
-              <button className={styles.menuItem} onClick={() => { closeMenu(); onPinChat(chat.id) }}>
-                <Pin size={10} /> Pin
-              </button>
-            )}
-          </div>,
-          document.body,
-        )
-      })()}
     </VStack>
   )
 }
