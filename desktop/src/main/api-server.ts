@@ -1,44 +1,23 @@
 import { createServer, type Server as HttpServer } from 'node:http'
 import { join } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { PtyManager } from './pty-manager'
-import { TaskScheduler } from './task-scheduler'
-import { ChatRegistry } from './chat-registry'
-import { PARLOUR_DIR, scanProjects, writeAgentsMd } from './parlour-dirs'
+import { WebSocketServer, WebSocket } from 'ws'
+import { PARLOUR_DIR } from './parlour-dirs'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
+import { ParlourService } from './parlour-service'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { Duplex } from 'node:stream'
 
 const log = rootLogger.child({ service: 'ApiServer' })
-
-function deriveShortTitle(prompt: string): string {
-  let text = prompt.trim().replace(/^(?:please\s+|can you\s+|i need you to\s+|could you\s+|i want you to\s+)/i, '')
-  if (!text) return prompt.slice(0, 50)
-  const m = /[.,;:\n]/.exec(text)
-  if (m && m.index > 0 && m.index <= 50) text = text.slice(0, m.index)
-  else if (text.length > 50) {
-    const sp = text.lastIndexOf(' ', 50)
-    text = text.slice(0, sp > 20 ? sp : 50)
-  }
-  return text.charAt(0).toUpperCase() + text.slice(1)
-}
-
 const PORT_FILE = join(PARLOUR_DIR, '.mcp-port')
 
-export class ParlourMcpServer {
+export class ApiServer {
   private httpServer: HttpServer | null = null
-  private ptyManager: PtyManager
-  private chatRegistry: ChatRegistry
-  private taskScheduler: TaskScheduler
+  private wss: WebSocketServer | null = null
   private port = 0
-  private settingsGetter: () => { llmCommand: string; projectRoots: string[] }
 
-  constructor(ptyManager: PtyManager, settingsGetter: () => { llmCommand: string; projectRoots: string[] }, taskScheduler: TaskScheduler, chatRegistry: ChatRegistry) {
-    this.ptyManager = ptyManager
-    this.settingsGetter = settingsGetter
-    this.taskScheduler = taskScheduler
-    this.chatRegistry = chatRegistry
-  }
+  constructor(private service: ParlourService) {}
 
   private async readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
     const chunks: Buffer[] = []
@@ -60,40 +39,28 @@ export class ParlourMcpServer {
     try {
       if (req.method === 'POST' && path === '/dispatch') {
         const body = await this.readBody(req)
-        const prompt = body.prompt as string
         const parentId = (body.parent_chat_id as string) ?? caller
-        const opts = {
-          name: deriveShortTitle(prompt),
-          llmCommand: (body.llm as string) ?? this.settingsGetter().llmCommand,
-          prompt,
-          background: true,
-          project: body.project ? { pathOrUrl: body.project as string, branch: body.branch as string | undefined } : undefined,
-        }
-        const result = parentId
-          ? await this.chatRegistry.createChildChat(parentId, opts)
-          : await this.chatRegistry.createChat(opts)
-
-        lifecycle.emit({ type: 'cli:dispatch', chatId: result.chat.id, parentId, prompt })
-        this.json(res, { chatId: result.chat.id, chatDir: result.chat.dirPath })
+        lifecycle.emit({ type: 'cli:dispatch', chatId: parentId ?? '', parentId, prompt: body.prompt as string })
+        const result = await this.service.dispatch(body.prompt as string, {
+          parentId, llm: body.llm as string | undefined,
+          project: body.project as string | undefined, branch: body.branch as string | undefined,
+        })
+        this.json(res, result)
         return
       }
 
       if (req.method === 'GET' && path.startsWith('/status/')) {
         const chatId = path.split('/')[2]
-        const chat = this.chatRegistry.getChat(chatId)
-        if (!chat) { this.json(res, { error: 'Chat not found' }, 404); return }
-        const buffer = chat.ptyId ? this.ptyManager.getBuffer(chat.ptyId) : ''
-        const tail = buffer.length > 4000 ? buffer.slice(-4000) : buffer
-        lifecycle.emit({ type: 'cli:status', chatId: caller ?? chatId, queriedId: chatId })
-        const harness = this.chatRegistry.getHarnessState(chatId)
-        this.json(res, { status: chat.status, name: chat.name, harness, output: tail })
+        if (caller) lifecycle.emit({ type: 'cli:status', chatId: caller, queriedId: chatId })
+        const status = this.service.getStatus(chatId)
+        if (!status) { this.json(res, { error: 'Chat not found' }, 404); return }
+        this.json(res, status)
         return
       }
 
       if (req.method === 'GET' && path.startsWith('/children/')) {
         const parentId = path.split('/')[2]
-        const children = this.chatRegistry.getChildren(parentId).map((c) => ({ id: c.id, name: c.name, status: c.status }))
-        this.json(res, children)
+        this.json(res, this.service.getChildren(parentId))
         return
       }
 
@@ -101,38 +68,29 @@ export class ParlourMcpServer {
         const body = await this.readBody(req)
         const chatId = body.chat_id as string
         const parentId = body.parent_id as string
-        const message = body.message as string
-        const parent = this.chatRegistry.getChat(parentId)
-        if (!parent?.ptyId) { this.json(res, { error: 'Parent not running' }, 400); return }
-        this.ptyManager.write(parent.ptyId, `\r\n${message}\r\n`)
+        const ok = this.service.report(chatId, parentId, body.message as string)
+        if (!ok) { this.json(res, { error: 'Parent not running' }, 400); return }
         lifecycle.emit({ type: 'cli:report', chatId, parentId })
         this.json(res, { ok: true })
         return
       }
 
       if (req.method === 'GET' && path === '/schedules') {
-        const schedules = this.taskScheduler.list().map((s) => ({
-          id: s.id, name: s.name, prompt: s.prompt, trigger: s.trigger,
-          enabled: s.enabled, lastRunAt: s.lastRunAt, lastRunStatus: s.lastRunStatus,
-        }))
         if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'list' })
-        this.json(res, schedules)
+        this.json(res, this.service.listSchedules())
         return
       }
 
       if (req.method === 'POST' && path === '/schedules') {
         const body = await this.readBody(req)
-        const prompt = body.prompt as string
         const cron = body.cron as string | undefined
         const at = body.at as string | undefined
         if ((!cron && !at) || (cron && at)) { this.json(res, { error: 'Provide exactly one of cron or at' }, 400); return }
-        const trigger = cron ? { type: 'cron' as const, cron } : { type: 'once' as const, at: at! }
-        const schedule = this.taskScheduler.create({
-          name: deriveShortTitle(prompt),
-          prompt, trigger, createdBy: caller,
-        })
         if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'create' })
-        this.json(res, { id: schedule.id, name: schedule.name })
+        const schedule = this.service.createSchedule({
+          prompt: body.prompt as string, cron, at, createdBy: caller,
+        })
+        this.json(res, schedule)
         return
       }
 
@@ -140,7 +98,7 @@ export class ParlourMcpServer {
         const id = path.split('/')[2]
         const body = await this.readBody(req)
         if (body.action === 'cancel') {
-          this.taskScheduler.delete(id)
+          this.service.cancelSchedule(id)
           if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'cancel' })
           this.json(res, { ok: true })
         }
@@ -149,7 +107,7 @@ export class ParlourMcpServer {
 
       if (req.method === 'POST' && path.match(/^\/schedules\/[^/]+\/run$/)) {
         const id = path.split('/')[2]
-        this.taskScheduler.runNow(id)
+        this.service.runSchedule(id)
         if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'run' })
         this.json(res, { ok: true })
         return
@@ -157,46 +115,32 @@ export class ParlourMcpServer {
 
       if (req.method === 'GET' && path.startsWith('/projects/')) {
         const chatId = path.split('/')[2]
-        const chat = this.chatRegistry.getChat(chatId)
-        if (!chat?.dirPath) { this.json(res, []); return }
-        const projects = await scanProjects(chat.dirPath)
         if (caller) lifecycle.emit({ type: 'cli:project', chatId: caller, action: 'list' })
-        this.json(res, projects.map((p) => ({ name: p.name, path: p.path, branch: p.branch })))
+        this.json(res, await this.service.listProjects(chatId))
         return
       }
 
       if (req.method === 'POST' && path === '/projects/open') {
         const body = await this.readBody(req)
         const chatId = body.chat_id as string
-        const chat = this.chatRegistry.getChat(chatId)
-        if (!chat?.dirPath) { this.json(res, { error: 'Chat not found' }, 404); return }
-        const project = await this.chatRegistry.cloneProject(
-          chat.dirPath, body.path_or_url as string, body.branch as string | undefined, body.base as string | undefined,
-        )
-        await this.chatRegistry.scanChatProjects(chatId)
-        const projects = await scanProjects(chat.dirPath)
-        await writeAgentsMd(chat.dirPath, projects, this.settingsGetter().projectRoots)
         if (caller) lifecycle.emit({ type: 'cli:project', chatId: caller, action: 'open' })
-        this.json(res, { name: project.name, path: project.path, branch: project.branch })
+        const project = await this.service.openProject(
+          chatId, body.path_or_url as string, body.branch as string | undefined, body.base as string | undefined,
+        )
+        if (!project) { this.json(res, { error: 'Chat not found' }, 404); return }
+        this.json(res, project)
+        return
+      }
+
+      if (req.method === 'GET' && path === '/events') {
+        this.handleSSE(res, url)
         return
       }
 
       if (req.method === 'POST' && path === '/hooks') {
         const body = await this.readBody(req)
         const chatId = (body.chat_id as string) ?? caller ?? ''
-        const event = body.event as string
-        const data = (body.data as Record<string, unknown>) ?? {}
-
-        lifecycle.emit({ type: 'cli:hook', chatId, event, data })
-
-        if (event === 'pre-tool-use' && data.tool) {
-          lifecycle.emit({ type: 'harness:tool:start', chatId, tool: data.tool as string })
-        } else if (event === 'post-tool-use' && data.tool) {
-          lifecycle.emit({ type: 'harness:tool:end', chatId, tool: data.tool as string })
-        } else if (event === 'stop') {
-          lifecycle.emit({ type: 'harness:stop', chatId, reason: data.reason as string | undefined })
-        }
-
+        this.service.handleHook(chatId, body.event as string, body.data as Record<string, unknown> | undefined)
         this.json(res, { ok: true })
         return
       }
@@ -209,8 +153,86 @@ export class ParlourMcpServer {
     }
   }
 
+  private handleSSE(res: ServerResponse, url: URL): void {
+    const typesParam = url.searchParams.get('types') ?? '*'
+    const filters = typesParam.split(',').map((t) => t.trim())
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    })
+
+    const matches = (eventType: string): boolean => {
+      for (const f of filters) {
+        if (f === '*') return true
+        if (f.endsWith(':*') && eventType.startsWith(f.slice(0, -1))) return true
+        if (f === eventType) return true
+      }
+      return false
+    }
+
+    let eventId = 0
+    const unsub = lifecycle.on('*', (event) => {
+      if (!matches(event.type)) return
+      eventId++
+      res.write(`id: ${eventId}\ndata: ${JSON.stringify(event)}\n\n`)
+    })
+
+    const heartbeat = setInterval(() => {
+      res.write(': heartbeat\n\n')
+    }, 30_000)
+
+    res.on('close', () => {
+      unsub()
+      clearInterval(heartbeat)
+    })
+  }
+
+  private handlePtyUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
+    const match = url.pathname.match(/^\/api\/pty\/([^/]+)\/stream$/)
+    if (!match) {
+      socket.destroy()
+      return
+    }
+
+    const chatId = match[1]
+    const ptyId = this.service.getPtyIdForChat(chatId)
+    if (!ptyId) {
+      socket.destroy()
+      return
+    }
+
+    this.wss!.handleUpgrade(req, socket, head, (ws) => {
+      log.info('PTY WebSocket connected', { chatId, ptyId })
+
+      this.service.onPtyOutput(ptyId, (_id, data) => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(data)
+      })
+
+      ws.on('message', (msg) => {
+        const raw = msg.toString()
+        try {
+          const parsed = JSON.parse(raw)
+          if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
+            this.service.resizePty(ptyId, parsed.cols, parsed.rows)
+            return
+          }
+        } catch {}
+        this.service.writePty(ptyId, raw)
+      })
+
+      ws.on('close', () => {
+        log.info('PTY WebSocket disconnected', { chatId, ptyId })
+      })
+    })
+  }
+
   async start(): Promise<number> {
     await mkdir(PARLOUR_DIR, { recursive: true })
+
+    this.wss = new WebSocketServer({ noServer: true })
 
     this.httpServer = createServer(async (req, res) => {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
@@ -223,6 +245,10 @@ export class ParlourMcpServer {
         res.writeHead(404)
         res.end()
       }
+    })
+
+    this.httpServer.on('upgrade', (req, socket, head) => {
+      this.handlePtyUpgrade(req, socket, head)
     })
 
     return new Promise((resolve, reject) => {
@@ -247,6 +273,7 @@ export class ParlourMcpServer {
   }
 
   async stop(): Promise<void> {
+    this.wss?.close()
     if (this.httpServer) {
       return new Promise((resolve) => {
         this.httpServer!.close(() => resolve())

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '../shared/ipc-channels'
+import type { PlatformAdapter } from '@parlour/platform'
 
 const api = {
   git: {
@@ -149,9 +150,9 @@ const api = {
       ipcRenderer.invoke(IPC.SHELL_OPEN_EXTERNAL, url),
   },
 
-  mcp: {
+  api: {
     getPort: () =>
-      ipcRenderer.invoke(IPC.MCP_GET_PORT) as Promise<number>,
+      ipcRenderer.invoke(IPC.API_GET_PORT) as Promise<number>,
   },
 
   chatRegistry: {
@@ -199,7 +200,7 @@ const api = {
     load: () =>
       ipcRenderer.invoke(IPC.STATE_LOAD),
   },
-}
+} satisfies PlatformAdapter
 
 contextBridge.exposeInMainWorld('api', api)
 

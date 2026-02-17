@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
-import { ParlourMcpServer } from './mcp-server'
+import { ApiServer } from './api-server'
+import { ParlourService } from './parlour-service'
 import { PtyManager } from './pty-manager'
 import { ChatRegistry } from './chat-registry'
 import { TaskScheduler } from './task-scheduler'
@@ -13,7 +14,7 @@ import { lifecycle } from './lifecycle'
 let mainWindow: BrowserWindow | null = null
 const ptyManager = new PtyManager()
 let chatRegistry: ChatRegistry | null = null
-let mcpServer: ParlourMcpServer | null = null
+let apiServer: ApiServer | null = null
 let taskScheduler: TaskScheduler | null = null
 
 function createWindow(): void {
@@ -144,10 +145,11 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers(ptyManager, taskScheduler, chatRegistry)
 
-  mcpServer = new ParlourMcpServer(ptyManager, settingsGetter, taskScheduler, chatRegistry)
-  mcpServer.start().catch((err) => logger.error('MCP server failed to start', { error: String(err) }))
+  const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, settingsGetter)
+  apiServer = new ApiServer(parlourService)
+  apiServer.start().catch((err) => logger.error('API server failed to start', { error: String(err) }))
 
-  ipcMain.handle(IPC.MCP_GET_PORT, () => mcpServer?.getPort() ?? 0)
+  ipcMain.handle(IPC.API_GET_PORT, () => apiServer?.getPort() ?? 0)
 
   createWindow()
 
@@ -168,6 +170,6 @@ app.on('before-quit', () => {
   chatRegistry?.cleanup()
   chatRegistry?.flushPersist()
   taskScheduler?.destroyAll()
-  mcpServer?.stop()
+  apiServer?.stop()
   ptyManager.destroyAll()
 })
