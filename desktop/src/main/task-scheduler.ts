@@ -5,6 +5,10 @@ import { BrowserWindow } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import type { ChatRegistry } from './chat-registry'
 import { PARLOUR_DIR } from './parlour-dirs'
+import { logger as rootLogger } from './logger'
+import { lifecycle } from './lifecycle'
+
+const log = rootLogger.child({ service: 'TaskScheduler' })
 
 export interface Schedule {
   id: string
@@ -164,14 +168,16 @@ export class TaskScheduler {
     this.save()
     this.pushToRenderer()
 
-    await this.chatRegistry.createChat({
+    const result = await this.chatRegistry.createChat({
       name: schedule.name,
       llmCommand: schedule.llmCommand || this.settingsGetter().llmCommand,
       project: schedule.project ? { pathOrUrl: schedule.project } : undefined,
       prompt: schedule.prompt,
       background: true,
       onExit: (exitCode) => {
-        schedule.lastRunStatus = exitCode === 0 ? 'success' : 'failed'
+        const status = exitCode === 0 ? 'success' : 'failed'
+        schedule.lastRunStatus = status
+        lifecycle.emit({ type: 'schedule:completed', scheduleId: schedule.id, status })
         if (schedule.trigger.type === 'once') {
           this.delete(schedule.id)
         } else {
@@ -180,6 +186,7 @@ export class TaskScheduler {
         }
       },
     })
+    lifecycle.emit({ type: 'schedule:triggered', scheduleId: schedule.id, chatId: result.chat.id })
   }
 
   private pushToRenderer(): void {
@@ -196,7 +203,7 @@ export class TaskScheduler {
       await mkdir(PARLOUR_DIR, { recursive: true })
       await writeFile(SCHEDULES_FILE, JSON.stringify(this.list(), null, 2), 'utf-8')
     } catch (err) {
-      console.error('Failed to save schedules:', err)
+      log.error('Failed to save schedules', { error: String(err) })
     }
   }
 }

@@ -7,6 +7,8 @@ import { ChatRegistry } from './chat-registry'
 import { TaskScheduler } from './task-scheduler'
 import { IPC } from '../shared/ipc-channels'
 import { ensureGlobalSkills } from './parlour-dirs'
+import { logger } from './logger'
+import { lifecycle } from './lifecycle'
 
 let mainWindow: BrowserWindow | null = null
 const ptyManager = new PtyManager()
@@ -128,19 +130,22 @@ app.whenReady().then(async () => {
     }
   })
 
-  await ensureGlobalSkills().catch((err) => console.error('Failed to ensure global skills:', err))
+  const lifecycleLog = logger.child({ source: 'lifecycle' })
+  lifecycle.on('*', (event) => lifecycleLog.info(event.type, event))
 
-  chatRegistry = new ChatRegistry(ptyManager, settingsGetter, app.getPath('userData'))
-  await chatRegistry.loadFromDisk().catch((err) => console.error('Failed to load chat registry:', err))
+  await ensureGlobalSkills().catch((err) => logger.error('Failed to ensure global skills', { error: String(err) }))
+
+  chatRegistry = new ChatRegistry(ptyManager, settingsGetter)
+  await chatRegistry.loadFromDisk().catch((err) => logger.error('Failed to load chat registry', { error: String(err) }))
   chatRegistry.reconcilePtys()
 
   taskScheduler = new TaskScheduler(chatRegistry, settingsGetter)
-  await taskScheduler.loadAndStart().catch((err) => console.error('Failed to load schedules:', err))
+  await taskScheduler.loadAndStart().catch((err) => logger.error('Failed to load schedules', { error: String(err) }))
 
   registerIpcHandlers(ptyManager, taskScheduler, chatRegistry)
 
   mcpServer = new ParlourMcpServer(ptyManager, settingsGetter, taskScheduler, chatRegistry)
-  mcpServer.start().catch((err) => console.error('MCP server failed to start:', err))
+  mcpServer.start().catch((err) => logger.error('MCP server failed to start', { error: String(err) }))
 
   ipcMain.handle(IPC.MCP_GET_PORT, () => mcpServer?.getPort() ?? 0)
 
@@ -160,7 +165,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
-  chatRegistry?.unwatchAll()
+  chatRegistry?.cleanup()
   chatRegistry?.flushPersist()
   taskScheduler?.destroyAll()
   mcpServer?.stop()
