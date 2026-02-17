@@ -125,6 +125,16 @@ Every action a human can perform through the UI must also be available to agents
 Every piece of context visible to the user must be accessible to agents programmatically.
 When adding features, implement both the UI surface and the corresponding MCP tool together.
 
+## Implementation Workflow (mandatory)
+
+Before writing any code, ALWAYS follow these steps in order:
+
+1. **Search for prior art.** Grep/glob the codebase for existing implementations, patterns, utilities, or similar features. Understand how the codebase already solves related problems before inventing new approaches.
+2. **Research.** Read the relevant files end-to-end. Understand the data flow, naming conventions, and architectural patterns already in use.
+3. **Propose a plan.** Present the implementation approach to the user — what files you'll change, what patterns you'll follow, and any trade-offs. Wait for explicit user approval before writing code.
+
+Never skip straight to coding. Getting alignment first avoids wasted work and keeps the codebase consistent.
+
 ## Key Patterns
 
 - **Keyboard shortcuts**: `@tanstack/react-hotkeys` via `useShortcuts.ts`. Bindings stored in `settings.keybindings`, reassignable in Settings panel. Defaults in `DEFAULT_KEYBINDINGS` (types.ts).
