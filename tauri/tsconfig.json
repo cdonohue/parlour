@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "baseUrl": ".",
+    "paths": {
+      "@parlour/platform": ["../packages/platform/src/index.ts"],
+      "@parlour/app": ["../packages/app/src/index.ts"],
+      "@parlour/ui": ["../packages/ui/src/index.ts"],
+      "@parlour/ui/*": ["../packages/ui/src/*"]
+    }
+  },
+  "include": ["src"]
+}
