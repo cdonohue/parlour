@@ -1,14 +1,13 @@
 import * as pty from 'node-pty'
 import { mkdir } from 'node:fs/promises'
-import { WebContents } from 'electron'
-import { IPC } from '../shared/ipc-channels'
 
 interface PtyInstance {
   process: pty.IPty
-  webContents: WebContents
   onExitCallbacks: Array<(exitCode: number) => void>
   onActivityCallbacks: Array<(ptyId: string) => void>
   onOutputCallbacks: Array<(ptyId: string, data: string) => void>
+  onTitleCallbacks: Array<(ptyId: string, title: string) => void>
+  onFirstInputCallbacks: Array<(ptyId: string, input: string) => void>
   inputBuffer: string
   detectedTitle: string | null
   outputBuffer: string
@@ -21,7 +20,7 @@ export class PtyManager {
   private ptys = new Map<string, PtyInstance>()
   private nextId = 0
 
-  async create(workingDir: string, webContents: WebContents, shell?: string, command?: string[], initialWrite?: string, extraEnv?: Record<string, string>): Promise<string> {
+  async create(workingDir: string, shell?: string, command?: string[], initialWrite?: string, extraEnv?: Record<string, string>): Promise<string> {
     const id = `pty-${++this.nextId}`
 
     let file: string
@@ -49,7 +48,7 @@ export class PtyManager {
       } as Record<string, string>,
     })
 
-    const instance: PtyInstance = { process: proc, webContents, onExitCallbacks: [], onActivityCallbacks: [], onOutputCallbacks: [], inputBuffer: '', detectedTitle: null, outputBuffer: '', firstInputEmitted: false, firstInputLines: [], lastOutputAt: Date.now() }
+    const instance: PtyInstance = { process: proc, onExitCallbacks: [], onActivityCallbacks: [], onOutputCallbacks: [], onTitleCallbacks: [], onFirstInputCallbacks: [], inputBuffer: '', detectedTitle: null, outputBuffer: '', firstInputEmitted: false, firstInputLines: [], lastOutputAt: Date.now() }
 
     let pendingWrite = initialWrite
     proc.onData((data) => {
@@ -60,9 +59,6 @@ export class PtyManager {
       }
       for (const cb of instance.onActivityCallbacks) cb(id)
       for (const cb of instance.onOutputCallbacks) cb(id, data)
-      if (!instance.webContents.isDestroyed()) {
-        instance.webContents.send(`${IPC.PTY_DATA}:${id}`, data)
-      }
       this.extractOscTitle(id, data, instance)
       if (pendingWrite) {
         const toWrite = pendingWrite
@@ -93,6 +89,16 @@ export class PtyManager {
   onOutput(ptyId: string, callback: (ptyId: string, data: string) => void): void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onOutputCallbacks.push(callback)
+  }
+
+  onTitle(ptyId: string, callback: (ptyId: string, title: string) => void): void {
+    const instance = this.ptys.get(ptyId)
+    if (instance) instance.onTitleCallbacks.push(callback)
+  }
+
+  onFirstInput(ptyId: string, callback: (ptyId: string, input: string) => void): void {
+    const instance = this.ptys.get(ptyId)
+    if (instance) instance.onFirstInputCallbacks.push(callback)
   }
 
   getLastOutputAt(ptyId: string): number | null {
@@ -131,8 +137,8 @@ export class PtyManager {
         }
         if (cmd && this.detectTitle(cmd) !== instance.detectedTitle) {
           instance.detectedTitle = this.detectTitle(cmd)
-          if (instance.detectedTitle && !instance.webContents.isDestroyed()) {
-            instance.webContents.send(`${IPC.PTY_TITLE}:${ptyId}`, instance.detectedTitle)
+          if (instance.detectedTitle) {
+            for (const cb of instance.onTitleCallbacks) cb(ptyId, instance.detectedTitle)
           }
         }
       } else if (ch === '\x7f' || ch === '\b') {
@@ -148,9 +154,7 @@ export class PtyManager {
       instance.firstInputEmitted = true
       const fullInput = instance.firstInputLines.join('\n')
       instance.firstInputLines = []
-      if (!instance.webContents.isDestroyed()) {
-        instance.webContents.send(`${IPC.PTY_FIRST_INPUT}:${ptyId}`, fullInput)
-      }
+      for (const cb of instance.onFirstInputCallbacks) cb(ptyId, fullInput)
     }
 
     instance.process.write(data)
@@ -167,9 +171,7 @@ export class PtyManager {
     }
     if (title && title !== instance.detectedTitle) {
       instance.detectedTitle = title
-      if (!instance.webContents.isDestroyed()) {
-        instance.webContents.send(`${IPC.PTY_TITLE}:${ptyId}`, title)
-      }
+      for (const cb of instance.onTitleCallbacks) cb(ptyId, title)
     }
   }
 
@@ -202,14 +204,6 @@ export class PtyManager {
 
   list(): string[] {
     return Array.from(this.ptys.keys())
-  }
-
-  /** Update the webContents reference for an existing PTY (e.g. after renderer reload) */
-  reattach(ptyId: string, webContents: WebContents): boolean {
-    const instance = this.ptys.get(ptyId)
-    if (!instance) return false
-    instance.webContents = webContents
-    return true
   }
 
   writeWhenReady(ptyId: string, text: string, submit = true): Promise<void> {

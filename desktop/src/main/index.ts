@@ -136,11 +136,24 @@ app.whenReady().then(async () => {
 
   await ensureGlobalSkills().catch((err) => logger.error('Failed to ensure global skills', { error: String(err) }))
 
-  chatRegistry = new ChatRegistry(ptyManager, settingsGetter)
+  chatRegistry = new ChatRegistry(
+    ptyManager,
+    settingsGetter,
+    () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
+    (state) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send(IPC.CHAT_REGISTRY_STATE_CHANGED, state)
+      }
+    },
+  )
   await chatRegistry.loadFromDisk().catch((err) => logger.error('Failed to load chat registry', { error: String(err) }))
   chatRegistry.reconcilePtys()
 
-  taskScheduler = new TaskScheduler(chatRegistry, settingsGetter)
+  taskScheduler = new TaskScheduler(chatRegistry, settingsGetter, (schedules) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) win.webContents.send(IPC.SCHEDULE_CHANGED, schedules)
+    }
+  })
   await taskScheduler.loadAndStart().catch((err) => logger.error('Failed to load schedules', { error: String(err) }))
 
   registerIpcHandlers(ptyManager, taskScheduler, chatRegistry)

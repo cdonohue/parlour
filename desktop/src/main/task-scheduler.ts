@@ -1,8 +1,6 @@
 import { Cron } from 'croner'
 import { join } from 'node:path'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { BrowserWindow } from 'electron'
-import { IPC } from '../shared/ipc-channels'
 import type { ChatRegistry } from './chat-registry'
 import { PARLOUR_DIR } from './parlour-dirs'
 import { logger as rootLogger } from './logger'
@@ -32,10 +30,12 @@ export class TaskScheduler {
   private timeouts = new Map<string, ReturnType<typeof setTimeout>>()
   private chatRegistry: ChatRegistry
   private settingsGetter: () => { llmCommand: string }
+  private onSchedulesChanged: (schedules: Schedule[]) => void
 
-  constructor(chatRegistry: ChatRegistry, settingsGetter: () => { llmCommand: string }) {
+  constructor(chatRegistry: ChatRegistry, settingsGetter: () => { llmCommand: string }, onSchedulesChanged: (schedules: Schedule[]) => void) {
     this.chatRegistry = chatRegistry
     this.settingsGetter = settingsGetter
+    this.onSchedulesChanged = onSchedulesChanged
   }
 
   async loadAndStart(): Promise<void> {
@@ -190,12 +190,7 @@ export class TaskScheduler {
   }
 
   private pushToRenderer(): void {
-    const all = this.list()
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send(IPC.SCHEDULE_CHANGED, all)
-      }
-    }
+    this.onSchedulesChanged(this.list())
   }
 
   private async save(): Promise<void> {

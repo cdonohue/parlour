@@ -41,8 +41,6 @@ const api = {
       ipcRenderer.send(IPC.PTY_DESTROY, ptyId),
     list: () =>
       ipcRenderer.invoke(IPC.PTY_LIST) as Promise<string[]>,
-    reattach: (ptyId: string) =>
-      ipcRenderer.invoke(IPC.PTY_REATTACH, ptyId) as Promise<boolean>,
     getBuffer: (ptyId: string) =>
       ipcRenderer.invoke(IPC.PTY_GET_BUFFER, ptyId) as Promise<string>,
     onData: (ptyId: string, callback: (data: string) => void) => {

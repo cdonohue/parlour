@@ -18,14 +18,6 @@ if (import.meta.hot) {
     const prev = import.meta.hot.data.state as AppState
     useAppStore.setState(prev)
 
-    window.api.pty.list().then((livePtyIds) => {
-      const live = new Set(livePtyIds)
-      const chats = useAppStore.getState().chats
-      for (const chat of chats) {
-        if (chat.ptyId && live.has(chat.ptyId)) {
-          window.api.pty.reattach(chat.ptyId)
-        }
-      }
-    })
+    window.api.pty.list()
   }
 }

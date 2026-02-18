@@ -20,7 +20,6 @@ export const IPC = {
   PTY_RESIZE: 'pty:resize',
   PTY_DESTROY: 'pty:destroy',
   PTY_LIST: 'pty:list',
-  PTY_REATTACH: 'pty:reattach',
   PTY_DATA: 'pty:data', // prefix for events: `pty:data:{id}`
   PTY_TITLE: 'pty:title', // prefix for events: `pty:title:{id}`
   PTY_GET_BUFFER: 'pty:get-buffer',

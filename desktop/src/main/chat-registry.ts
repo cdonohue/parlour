@@ -1,11 +1,9 @@
-import { BrowserWindow, nativeTheme } from 'electron'
 import { join, basename, resolve } from 'node:path'
 import { readFile, writeFile, mkdir, rm, symlink, readdir, stat } from 'node:fs/promises'
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { IPC } from '../shared/ipc-channels'
 import { PtyManager } from './pty-manager'
 import { GitService } from './git-service'
 import { PARLOUR_DIR, BARE_DIR, PROJECT_SETUP_DIR, createChatDir, writeAgentsMd, scanProjects, copySkillsToChat, ensureGlobalSkills } from './parlour-dirs'
@@ -20,11 +18,6 @@ import { HarnessTracker } from './harness-tracker'
 
 const execAsync = promisify(execFile)
 const log = rootLogger.child({ service: 'ChatRegistry' })
-
-function themeEnv(): Record<string, string> {
-  const light = !nativeTheme.shouldUseDarkColors
-  return { COLORFGBG: light ? '0;15' : '15;0' }
-}
 
 type ChatStatus = 'active' | 'idle' | 'done' | 'error'
 
@@ -58,14 +51,25 @@ export class ChatRegistry {
   private harnessTrackers = new Map<string, HarnessTracker>()
   private ptyManager: PtyManager
   private settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] }
+  private getTheme: () => 'dark' | 'light'
+  private onStateChanged: (state: { chats: ChatRecord[] }) => void
   private persistTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
     ptyManager: PtyManager,
     settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] },
+    getTheme: () => 'dark' | 'light',
+    onStateChanged: (state: { chats: ChatRecord[] }) => void,
   ) {
     this.ptyManager = ptyManager
     this.settingsGetter = settingsGetter
+    this.getTheme = getTheme
+    this.onStateChanged = onStateChanged
+  }
+
+  private themeEnv(): Record<string, string> {
+    const light = this.getTheme() === 'light'
+    return { COLORFGBG: light ? '0;15' : '15;0' }
   }
 
   getState(): { chats: ChatRecord[] } {
@@ -211,10 +215,9 @@ export class ChatRegistry {
       await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
       await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
 
-      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...themeEnv() }
-      const webContents = this.getWebContents()
+      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...this.themeEnv() }
       const command = this.buildShellCommand(llmCommand, [])
-      ptyId = await this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
+      ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
     } catch (err) {
       await rm(dirPath, { recursive: true, force: true }).catch(() => {})
       throw err
@@ -290,10 +293,9 @@ export class ChatRegistry {
       } catch {}
     }
 
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, ...themeEnv() }
-    const webContents = this.getWebContents()
+    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, ...this.themeEnv() }
     const command = this.buildShellCommand(llmCommand, [])
-    const ptyId = await this.ptyManager.create(dirPath, webContents, undefined, command, undefined, env)
+    const ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
 
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
@@ -341,13 +343,12 @@ export class ChatRegistry {
     }
 
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...themeEnv() }
+    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...this.themeEnv() }
 
     const resumeArgs = getResumeArgs(resolveCliType(llmCommand))
 
-    const webContents = this.getWebContents()
     const command = this.buildShellCommand(llmCommand, resumeArgs)
-    const ptyId = await this.ptyManager.create(chat.dirPath, webContents, undefined, command, undefined, env)
+    const ptyId = await this.ptyManager.create(chat.dirPath, undefined, command, undefined, env)
 
     let savedBuf: string | undefined
     try { savedBuf = await readFile(join(chat.dirPath, 'terminal-buffer'), 'utf-8') } catch {}
@@ -624,12 +625,6 @@ export class ChatRegistry {
     return ['/bin/sh', '-c', `exec ${llmCommand} ${escaped.join(' ')}`]
   }
 
-  private getWebContents(): Electron.WebContents {
-    const win = BrowserWindow.getAllWindows()[0]
-    if (!win) throw new Error('No window available')
-    return win.webContents
-  }
-
   private async summarizeContext(ptyId: string): Promise<string | null> {
     const buffer = this.ptyManager.getBuffer(ptyId)
     const tail = buffer.length > 8000 ? buffer.slice(-8000) : buffer
@@ -722,11 +717,6 @@ export class ChatRegistry {
   }
 
   private pushToRenderer(): void {
-    const state = { chats: this.chats }
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) {
-        win.webContents.send(IPC.CHAT_REGISTRY_STATE_CHANGED, state)
-      }
-    }
+    this.onStateChanged({ chats: this.chats })
   }
 }

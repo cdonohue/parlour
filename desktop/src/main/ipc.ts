@@ -87,11 +87,19 @@ export function registerIpcHandlers(sharedPtyManager: PtyManager, sharedTaskSche
   ipcMain.handle(IPC.PTY_CREATE, async (_e, workingDir: string, shell?: string, extraEnv?: Record<string, string>, command?: string[]) => {
     const win = BrowserWindow.fromWebContents(_e.sender)
     if (!win) throw new Error('No window found')
-    const ptyId = await ptyManager.create(workingDir, win.webContents, shell, command, undefined, extraEnv)
+    const wc = win.webContents
+    const ptyId = await ptyManager.create(workingDir, shell, command, undefined, extraEnv)
+    ptyManager.onOutput(ptyId, (_id, data) => {
+      if (!wc.isDestroyed()) wc.send(`${IPC.PTY_DATA}:${ptyId}`, data)
+    })
+    ptyManager.onTitle(ptyId, (_id, title) => {
+      if (!wc.isDestroyed()) wc.send(`${IPC.PTY_TITLE}:${ptyId}`, title)
+    })
+    ptyManager.onFirstInput(ptyId, (_id, input) => {
+      if (!wc.isDestroyed()) wc.send(`${IPC.PTY_FIRST_INPUT}:${ptyId}`, input)
+    })
     ptyManager.onExit(ptyId, (exitCode) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send(`${IPC.PTY_EXIT}:${ptyId}`, exitCode)
-      }
+      if (!wc.isDestroyed()) wc.send(`${IPC.PTY_EXIT}:${ptyId}`, exitCode)
     })
     return ptyId
   })
@@ -114,12 +122,6 @@ export function registerIpcHandlers(sharedPtyManager: PtyManager, sharedTaskSche
 
   ipcMain.handle(IPC.PTY_GET_BUFFER, async (_e, ptyId: string) => {
     return ptyManager.getBuffer(ptyId)
-  })
-
-  ipcMain.handle(IPC.PTY_REATTACH, async (_e, ptyId: string) => {
-    const win = BrowserWindow.fromWebContents(_e.sender)
-    if (!win) throw new Error('No window found')
-    return ptyManager.reattach(ptyId, win.webContents)
   })
 
   // ── File handlers ──
