@@ -1,6 +1,12 @@
 # Phase C: Tauri Desktop Shell
 
-Status: **Planned** (depends on Phase B completion)
+Status: **Superseded** by [Server + WebSocket Transport](./server-websocket-transport.md)
+
+> This spec proposed rewriting PTY/git/chat-registry in Rust with Tauri IPC. The WebSocket transport spec eliminates that — Tauri becomes a thin shell that spawns the same Node.js server as a sidecar and connects via WebSocket, identical to every other target. No `portable-pty`, no `git2`, no Rust chat-registry.
+
+---
+
+*Original spec below for reference.*
 
 Replace Electron with Tauri for an ~8x smaller binary (~15MB vs ~120MB). The React app (`@parlour/app`) works unchanged — only the adapter and backend change.
 
