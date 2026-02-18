@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
 
@@ -17,21 +17,34 @@ fn spawn_server() -> u16 {
         .expect("failed to spawn server");
 
     let stdout = child.stdout.take().unwrap();
-    let reader = BufReader::new(stdout);
+    let mut reader = BufReader::new(stdout);
+    let mut line = String::new();
+    let mut collected = String::new();
 
-    for line in reader.lines() {
-        let line = line.expect("failed to read stdout");
-        if let Some(port_str) = line.strip_prefix("PORT=") {
-            let port: u16 = port_str.trim().parse().expect("invalid port");
-            // Keep server running in background
+    loop {
+        line.clear();
+        let n = reader.read_line(&mut line).expect("failed to read stdout");
+        if n == 0 {
+            break;
+        }
+        if let Some(port_str) = line.trim().strip_prefix("PORT=") {
+            let port: u16 = port_str.parse().expect("invalid port");
             std::thread::spawn(move || {
+                let mut sink = [0u8; 4096];
+                loop {
+                    match reader.read(&mut sink) {
+                        Ok(0) | Err(_) => break,
+                        _ => {}
+                    }
+                }
                 let _ = child.wait();
             });
             return port;
         }
+        collected.push_str(&line);
     }
 
-    panic!("server did not emit PORT=N");
+    panic!("server did not emit PORT=N. Output: {collected}");
 }
 
 #[tauri::command]
