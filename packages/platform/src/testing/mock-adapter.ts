@@ -27,7 +27,6 @@ export function createMockAdapter(overrides: Partial<PlatformAdapter> = {}): Pla
       resize: noop,
       destroy: noop,
       list: () => resolved([]),
-      reattach: () => resolved(true),
       getBuffer: () => resolved(''),
       onData: () => noopUnsub(),
       onTitle: () => noopUnsub(),

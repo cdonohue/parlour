@@ -14,6 +14,11 @@ export interface Schedule {
   lastRunStatus?: 'success' | 'failed' | 'running'
 }
 
+export interface Project {
+  name: string
+  repoPath: string
+}
+
 export interface ProjectContext {
   name: string
   path: string

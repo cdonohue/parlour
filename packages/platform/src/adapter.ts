@@ -21,7 +21,6 @@ export interface PtyAdapter {
   resize(ptyId: string, cols: number, rows: number): void
   destroy(ptyId: string): void
   list(): Promise<string[]>
-  reattach(ptyId: string): Promise<boolean>
   getBuffer(ptyId: string): Promise<string>
   onData(ptyId: string, callback: (data: string) => void): Unsubscribe
   onTitle(ptyId: string, callback: (title: string) => void): Unsubscribe

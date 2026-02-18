@@ -1,0 +1,16 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for Parlour",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "dialog:default",
+    "dialog:allow-open",
+    "opener:default",
+    "opener:allow-open-url",
+    "shell:default",
+    "shell:allow-spawn",
+    "shell:allow-stdin-write"
+  ]
+}

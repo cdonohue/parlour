@@ -192,7 +192,7 @@ export function createAppStore(adapter: PlatformAdapter) {
 
       set({
         activeChatId,
-        contentView: (data.contentView === 'automations' ? 'tasks' : data.contentView) ?? 'chat',
+        contentView: ((data.contentView as string) === 'automations' ? 'tasks' : data.contentView) ?? 'chat',
         settings,
       })
     },
@@ -294,14 +294,7 @@ export async function hydrateFromDisk(adapter: PlatformAdapter, store: AppStore)
   })
 
   try {
-    const livePtyIds = new Set(await adapter.pty.list())
-    const chats = store.getState().chats
-
-    for (const chat of chats) {
-      if (chat.ptyId && livePtyIds.has(chat.ptyId)) {
-        await adapter.pty.reattach(chat.ptyId)
-      }
-    }
+    await adapter.pty.list()
   } catch (err) {
     console.error('Failed to reconcile PTYs:', err)
   }

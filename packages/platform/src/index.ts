@@ -16,3 +16,4 @@ export type {
 } from './adapter'
 
 export { PlatformProvider, usePlatform } from './context'
+export { createWebSocketAdapter } from './ws-adapter'

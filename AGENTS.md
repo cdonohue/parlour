@@ -1,55 +1,73 @@
 # Parlour
 
-macOS app for running AI agents in parallel with integrated terminal, git, and automation scheduling.
+App for running AI agents in parallel with integrated terminal, git, and automation scheduling.
 
 ## Commands
 
 All from repo root:
 
-    bun run dev         # Dev server + Electron
+    bun run check       # Typecheck all packages + run unit tests (fast feedback loop)
+    bun run typecheck   # Typecheck all packages (turbo, parallel, cached)
+    bun run test:unit   # Vitest unit tests
+    bun run dev         # Browser app (Vite HMR)
+    bun run dev:server  # Standalone server (bun --watch, auto-reload)
+    bun run dev:browser # Browser app (Vite HMR)
     bun run build       # Production build
-    bun run test        # Playwright e2e tests
-    bun run rebuild     # Rebuild native modules (node-pty)
-    bun run dist        # Package signed macOS DMG
+    bun run test        # All test layers (unit + integration + e2e)
+    bun run test:e2e    # Playwright e2e tests
     bun run storybook   # @parlour/ui component dev
+
+After making changes, run `bun run check` to verify.
 
 ## Repo Structure
 
     parlour/
-    ├── packages/ui/            # @parlour/ui — presentational components, primitives, styles
-    │   └── src/
-    │       ├── components/     # Sidebar, HeaderBar, Terminal, Settings, Automations, etc.
-    │       ├── primitives/     # Button, Toggle, TextInput, Dialog, Select, etc.
-    │       ├── styles/         # CSS variables, tokens, fonts
-    │       ├── utils/          # deriveShortTitle, describeCron
-    │       └── types.ts        # Shared types (Chat, Repo, Link, Settings, etc.)
+    ├── packages/
+    │   ├── ui/                 # @parlour/ui — presentational components, primitives, styles
+    │   ├── app/                # @parlour/app — React app (store, connected wrappers, hooks)
+    │   ├── platform/           # @parlour/platform — PlatformAdapter interface + WebSocket adapter
+    │   ├── server/             # @parlour/server — all backend services (PTY, git, chat, API)
+    │   └── api-types/          # @parlour/api-types — shared WS/HTTP message types
     ├── parlour-cli/            # Agent-facing CLI (parlour dispatch, status, hook, etc.)
-    │   └── src/index.ts        # Single-file CLI, reads ~/.parlour/.mcp-port
-    └── desktop/                # Electron app
-        ├── src/main/           # Main process services
-        ├── src/preload/        # contextBridge → window.api
-        ├── src/renderer/       # React (store, connected wrappers, hooks)
-        ├── src/shared/         # IPC channel constants
-        └── e2e/                # Playwright tests
+    └── tauri/                  # Tauri shell — Rust sidecar spawns @parlour/server
 
 ## Tech Stack
 
-Electron 40 · React 19 · TypeScript · Zustand · xterm.js · node-pty · Allotment · electron-vite · Playwright · bun
+React 19 · TypeScript · Zustand · xterm.js · node-pty · Allotment · Playwright · bun
+
+Shells: Tauri (production, Rust sidecar) · Browser (standalone server)
 
 ## Architecture
 
-### Process Model
+### Multi-Target Model
 
-Main (Node.js) ←IPC→ Preload (contextBridge) ←window.api→ Renderer (React)
+All targets share the same `@parlour/app` React app and `@parlour/server` backend. Each shell provides a thin native layer:
 
-Main process services:
-- **ChatRegistry** — chat/link lifecycle (create, resume, delete, retitle), PTY exit listeners, harness tracking per chat, pushes state to renderer
+| Target | Server | Native APIs | Status |
+|--------|--------|-------------|--------|
+| **Tauri** | Sidecar (child process) | `@tauri-apps/plugin-dialog`, `plugin-opener` | Production |
+| **Browser** | Standalone (`bun run dev:server`) | None (fallback stubs) | Dev/cloud |
+
+### Connection Pattern
+
+All targets use `WebSocketPlatformAdapter` from `@parlour/platform`:
+
+1. Server starts (sidecar or standalone) → random port
+2. Shell passes port to renderer (Tauri: `invoke`, Browser: URL param)
+3. Renderer creates WS adapter → connects to `ws://localhost:{port}/ws`
+4. Shell overrides native methods on adapter (selectDirectory, openExternal, theme)
+
+### Server Services (`@parlour/server`)
+
+- **ChatRegistry** — chat lifecycle (create, resume, delete, retitle), PTY exit listeners, harness tracking, state push via WebSocket
 - **PtyManager** — node-pty spawn, output buffer (200k cap), OSC title extraction
 - **GitService** — all git ops via execFileAsync('git', ...)
-- **GithubService** — `gh` CLI for PR status, 60s cache, silent degradation
+- **ForgeService** — `gh` CLI for PR status, 60s cache, silent degradation
 - **FileService** — file read/write
-- **ApiServer** — HTTP REST API for agent orchestration (api-server.ts), delegates to ParlourService
-- **TaskScheduler** — croner cron/one-time jobs, delegates to ChatRegistry for execution
+- **ApiServer** — HTTP REST API + WebSocket server, delegates to ParlourService
+- **ParlourService** — orchestration logic (dispatch, status, schedules, hooks)
+- **TaskScheduler** — croner cron/one-time jobs, delegates to ChatRegistry
+- **ThemeManager** — theme mode + resolved state, pushes via WebSocket
 - **Logger** — structured JSON lines to `~/.parlour/logs/parlour.jsonl`, child loggers per service
 - **Lifecycle** — typed event emitter for terminal, harness, and CLI events
 - **HarnessTracker** — per-chat status state machine (idle/thinking/writing/tool-use/waiting/done/error)
@@ -58,28 +76,19 @@ Cross-cutting:
 - **HarnessParser** — PTY output parser (Claude-specific + generic fallback) → emits HarnessEvents
 - **CliConfig** — per-CLI config generation (Claude hooks, Gemini settings, Codex TOML, OpenCode JSON)
 
-### IPC Flow
-
-shared/ipc-channels.ts (constants) → main/ipc.ts (handlers) → preload/index.ts (bridge) → window.api.*
-
 ### UI Layout
 
 2-pane Allotment layout: collapsible sidebar + content area.
 Content has layered views toggled by visibility: chat terminal, automations, task detail.
 The terminal is the primary interaction surface — no file editor, no tabs.
 
-### @parlour/ui ↔ Connected Pattern
-
-packages/ui/ exports presentational components (no store, no IPC calls).
-desktop/src/renderer/connected/ has thin wrappers binding UI to the Zustand store.
-
 ### State
 
 Split ownership:
-- **ChatRegistry** (main process) owns chats + links → persisted to `~/.parlour/chat-registry.json` (debounced 500ms)
+- **ChatRegistry** (server) owns chats + links → persisted to `~/.parlour/chat-registry.json` (debounced 500ms)
 - **Zustand store** (renderer) owns repos, tasks, runs, settings, navigation → persisted to `parlour-state.json`
 
-Push pattern: ChatRegistry mutates → persist → push `{chats, links}` to all windows via `CHAT_REGISTRY_STATE_CHANGED`.
+Push pattern: ChatRegistry mutates → persist → push `{chats, links}` to all connected WebSocket clients.
 Renderer receives pushes into Zustand. Optimistic local updates for UI-only fields (pin, active, unread).
 On startup, ChatRegistry reconciles PTYs: dead PTYs → status failed, live PTYs → re-register exit listeners.
 window.__store exposed in dev for testing.
@@ -137,7 +146,7 @@ Subscribe with `lifecycle.on('*', handler)` for all events, or prefix like `life
 
 ### Chat Lifecycle
 
-All lifecycle managed by ChatRegistry in main process:
+All lifecycle managed by ChatRegistry in server:
 1. Create dir (~/.parlour/chats/{id}/)
 2. Process attach (worktree create/clone, symlinks)
 3. Write AGENTS.md + CLI config (hooks for Claude, settings for others)
@@ -194,7 +203,7 @@ When adding features, implement both the UI surface and the corresponding CLI co
 
 Structured logs to `~/.parlour/logs/parlour.jsonl` (JSON lines, rotated at 5MB).
 
-All lifecycle events logged via wildcard subscriber in index.ts. Services use child loggers: `logger.child({ service: 'ChatRegistry' })`.
+All lifecycle events logged via wildcard subscriber. Services use child loggers: `logger.child({ service: 'ChatRegistry' })`.
 
 Inspect logs:
 - `tail -f ~/.parlour/logs/parlour.jsonl | jq` — live stream
@@ -225,17 +234,18 @@ Never skip straight to coding. Getting alignment first avoids wasted work and ke
 
 ## File Map
 
-### desktop/src/main/
-    index.ts               App entry, window, service init, cleanup
-    ipc.ts                 All IPC handlers, delegates to services
-    chat-registry.ts       Chat/Link lifecycle, state push, harness tracking
+### packages/server/src/
+    main.ts                Standalone server entry (Tauri sidecar + browser dev)
+    index.ts               Public exports
+    api-server.ts          HTTP REST API + WebSocket server
+    parlour-service.ts     Orchestration logic (dispatch, status, schedules, hooks)
+    chat-registry.ts       Chat lifecycle, state push, harness tracking
     pty-manager.ts         PTY lifecycle, buffer, title extraction
     git-service.ts         Git ops (worktree, status, diff, branch, commit)
-    github-service.ts      gh CLI PR status with cache
+    forge-service.ts       gh CLI PR status with cache
     file-service.ts        File read/write
-    api-server.ts          HTTP REST API server (thin adapter over ParlourService)
-    parlour-service.ts     Orchestration logic (dispatch, status, schedules, hooks)
     task-scheduler.ts      Cron/one-time job execution, delegates to ChatRegistry
+    theme-manager.ts       Theme mode + resolved state
     logger.ts              Structured JSON logger, child loggers, rotation
     lifecycle.ts           Typed event emitter (TerminalEvent, HarnessEvent, CliEvent)
     harness-parser.ts      PTY output parsers (ClaudeOutputParser, GenericOutputParser)
@@ -246,16 +256,17 @@ Never skip straight to coding. Getting alignment first avoids wasted work and ke
     claude-config.ts       ~/.claude.json trust, settings
     parlour-dirs.ts        Chat dir creation, AGENTS.md gen, project scanning
 
-### parlour-cli/
-    src/index.ts           Agent-facing CLI (dispatch, status, hook, etc.)
-
-### desktop/src/renderer/
+### packages/app/src/
     App.tsx                Root component, 2-pane Allotment
     store/app-store.ts     Zustand store
     store/types.ts         AppState interface
     connected/             Store-bound wrappers for @parlour/ui
     hooks/                 useShortcuts, usePrStatusPoller, useSchedules
 
-### desktop/src/shared/
-    ipc-channels.ts        IPC channel constants
-    github-types.ts        PR/check types
+### parlour-cli/
+    src/index.ts           Agent-facing CLI (dispatch, status, hook, etc.)
+
+### tauri/
+    src/main.tsx           Renderer entry (WS adapter + Tauri native overrides)
+    src-tauri/             Rust backend (sidecar spawn, window management)
+

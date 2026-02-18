@@ -33,19 +33,21 @@ export function useShortcuts() {
   const platform = usePlatform()
   const kb = useKeybindings()
 
-  useHotkey(kb['toggle-sidebar'], () => {
+  const hk = (action: keyof Keybindings) => kb[action] as Parameters<typeof useHotkey>[0]
+
+  useHotkey(hk('toggle-sidebar'), () => {
     useAppStore.getState().toggleSidebar()
   })
 
-  useHotkey(kb['new-chat'], () => {
+  useHotkey(hk('new-chat'), () => {
     useAppStore.getState().createNewChat()
   })
 
-  useHotkey(kb['new-child-chat'], () => {
+  useHotkey(hk('new-child-chat'), () => {
     useAppStore.getState().openNewChatDialog({ mode: 'new' })
   })
 
-  useHotkey(kb['open-in-editor'], async () => {
+  useHotkey(hk('open-in-editor'), async () => {
     const s = useAppStore.getState()
     const chat = s.chats.find((c) => c.id === s.activeChatId)
     if (!chat?.dirPath) return
@@ -60,23 +62,23 @@ export function useShortcuts() {
     if (opener) platform.app.openIn(opener, chat.dirPath)
   })
 
-  useHotkey(kb['settings'], () => {
+  useHotkey(hk('settings'), () => {
     useAppStore.getState().toggleSettings()
   })
 
-  useHotkey(kb['font-increase'], () => {
+  useHotkey(hk('font-increase'), () => {
     const s = useAppStore.getState()
     const next = Math.max(8, Math.min(32, s.settings.terminalFontSize + 1))
     s.updateSettings({ terminalFontSize: next })
   })
 
-  useHotkey(kb['font-decrease'], () => {
+  useHotkey(hk('font-decrease'), () => {
     const s = useAppStore.getState()
     const next = Math.max(8, Math.min(32, s.settings.terminalFontSize - 1))
     s.updateSettings({ terminalFontSize: next })
   })
 
-  useHotkey(kb['font-reset'], () => {
+  useHotkey(hk('font-reset'), () => {
     useAppStore.getState().updateSettings({ terminalFontSize: 14 })
   })
 

@@ -1,6 +1,6 @@
 # Parlour
 
-A macOS desktop app for orchestrating AI coding agents in parallel. Spawn multiple agent sessions, each with its own terminal and git worktree, and let them coordinate via MCP.
+An app for orchestrating AI coding agents in parallel. Spawn multiple agent sessions, each with its own terminal and git worktree, and let them coordinate via MCP.
 
 ## Features
 
@@ -22,15 +22,16 @@ bun install
 bun run dev
 ```
 
-### Build and package
+### Targets
 
-```bash
-bun run build     # Production build
-bun run dist      # Package as signed macOS DMG
-```
+| Target | Command | Description |
+|--------|---------|-------------|
+| Browser | `bun run dev:server && bun run dev:browser` | Standalone server + Vite HMR |
+| Tauri | `cd tauri && bunx tauri dev` | Rust sidecar, native window |
 
 ### Test
 
 ```bash
-bun run test      # Playwright e2e tests
+bun run check     # Typecheck + unit tests
+bun run test      # All test layers
 ```

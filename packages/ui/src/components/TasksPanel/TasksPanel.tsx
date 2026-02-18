@@ -94,7 +94,7 @@ interface TasksPanelProps {
 export function TasksPanel({ schedules, defaultLlm, onAdd, onToggle, onDelete, onUpdate, onRunNow, onGenerateCron }: TasksPanelProps) {
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
+      <div className={styles.header} data-tauri-drag-region>
         <span className={styles.title}>Tasks</span>
         <IconButton icon={<Plus />} onClick={onAdd} title="Add task" size="sm" />
       </div>

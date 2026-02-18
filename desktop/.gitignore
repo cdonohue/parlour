@@ -1,6 +1,0 @@
-node_modules/
-out/
-dist/
-.env
-test-results/
-e2e/screenshots/

@@ -16,7 +16,7 @@ interface HeaderBarProps {
 
 export function HeaderBar({ title, subtitle, breadcrumbs, projects, onOpenUrl, onOpen }: HeaderBarProps) {
   return (
-    <VStack gap={0} className={styles.headerBar}>
+    <VStack gap={0} className={styles.headerBar} data-tauri-drag-region>
       <HStack align="center">
         <HStack gap={4} align="center" flex="1">
           {breadcrumbs && breadcrumbs.length > 0 && (
