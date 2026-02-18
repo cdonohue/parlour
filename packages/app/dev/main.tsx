@@ -1,36 +1,29 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createMockAdapter } from '@parlour/platform/testing/mock-adapter'
-import { PlatformProvider } from '@parlour/platform'
+import { createWebSocketAdapter, PlatformProvider } from '@parlour/platform'
 import { App, initApp, hydrateFromDisk } from '@parlour/app'
-import { SEED_CHATS } from './seed'
 import './global.css'
+
+const params = new URLSearchParams(window.location.search)
+const port = params.get('port') ?? '3000'
+const serverUrl = `http://localhost:${port}`
 
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-const adapter = createMockAdapter({
-  chatRegistry: {
-    getState: () => Promise.resolve({ chats: SEED_CHATS }),
-    onStateChanged: () => () => {},
-    update: () => Promise.resolve(undefined),
-    create: () => Promise.resolve({ chat: { id: crypto.randomUUID(), name: 'New Chat' } }),
-    createChild: () => Promise.resolve({ chat: { id: crypto.randomUUID(), name: 'Child Chat' } }),
-    resume: () => Promise.resolve({}),
-    delete: () => Promise.resolve(undefined),
-    retitle: () => Promise.resolve(undefined),
-  },
+const adapter = createWebSocketAdapter(serverUrl, {
   theme: {
-    setMode: () => Promise.resolve(undefined),
+    setMode: (mode) =>
+      fetch(`${serverUrl}/api/theme/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      }).then(() => undefined),
     onResolvedChanged: (cb) => {
       const handler = (e: MediaQueryListEvent) => cb(e.matches ? 'dark' : 'light')
       mediaQuery.addEventListener('change', handler)
       cb(mediaQuery.matches ? 'dark' : 'light')
       return () => mediaQuery.removeEventListener('change', handler)
     },
-  },
-  cli: {
-    detect: () => Promise.resolve(['claude']),
-    baseDefaults: () => Promise.resolve({ claude: 'claude' }),
   },
 })
 
@@ -51,5 +44,5 @@ createRoot(document.getElementById('root')!).render(
     <PlatformProvider value={adapter}>
       <App />
     </PlatformProvider>
-  </StrictMode>
+  </StrictMode>,
 )

@@ -7,8 +7,8 @@ export function useSchedules(): Schedule[] {
   const [schedules, setSchedules] = useState<Schedule[]>([])
 
   useEffect(() => {
-    platform.schedules.list().then(setSchedules)
-    const unsub = platform.schedules.onChanged(setSchedules as (s: unknown[]) => void)
+    platform.schedules.list().then((s) => setSchedules(s as Schedule[]))
+    const unsub = platform.schedules.onChanged((s) => setSchedules(s as Schedule[]))
     return unsub
   }, [platform])
 

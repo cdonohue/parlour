@@ -192,7 +192,7 @@ export function createAppStore(adapter: PlatformAdapter) {
 
       set({
         activeChatId,
-        contentView: (data.contentView === 'automations' ? 'tasks' : data.contentView) ?? 'chat',
+        contentView: ((data.contentView as string) === 'automations' ? 'tasks' : data.contentView) ?? 'chat',
         settings,
       })
     },
