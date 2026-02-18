@@ -1,17 +1,14 @@
-import type { CSSProperties, ReactNode, MouseEventHandler } from 'react'
+import type { CSSProperties, ReactNode, HTMLAttributes } from 'react'
 
 type Space = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12 | 16
 
-interface StackProps {
+interface StackProps extends HTMLAttributes<HTMLDivElement> {
   gap?: Space
   align?: CSSProperties['alignItems']
   justify?: CSSProperties['justifyContent']
   wrap?: boolean
   flex?: CSSProperties['flex']
   padding?: Space
-  className?: string
-  style?: CSSProperties
-  onClick?: MouseEventHandler<HTMLDivElement>
   children: ReactNode
 }
 
@@ -32,10 +29,10 @@ function stackStyle(
   }
 }
 
-export function HStack({ className, children, onClick, ...props }: StackProps): React.ReactElement {
-  return <div className={className} style={stackStyle('row', props)} onClick={onClick}>{children}</div>
+export function HStack({ className, children, gap, align, justify, wrap, flex, padding, style, ...rest }: StackProps): React.ReactElement {
+  return <div className={className} style={stackStyle('row', { gap, align, justify, wrap, flex, padding, style })} {...rest}>{children}</div>
 }
 
-export function VStack({ className, children, onClick, ...props }: StackProps): React.ReactElement {
-  return <div className={className} style={stackStyle('column', props)} onClick={onClick}>{children}</div>
+export function VStack({ className, children, gap, align, justify, wrap, flex, padding, style, ...rest }: StackProps): React.ReactElement {
+  return <div className={className} style={stackStyle('column', { gap, align, justify, wrap, flex, padding, style })} {...rest}>{children}</div>
 }

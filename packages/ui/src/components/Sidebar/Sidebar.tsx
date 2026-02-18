@@ -127,7 +127,7 @@ export function Sidebar({
 
   return (
     <VStack className={styles.sidebar} gap={3}>
-      <div className={styles.titleArea} />
+      <div className={styles.titleArea} data-tauri-drag-region />
 
       <HStack align="center" className={styles.topActions}>
         <SidebarAction icon={<Plus size={14} />} label="New chat" bordered onClick={(e) => onNewChat({ withDialog: e?.shiftKey })} />
