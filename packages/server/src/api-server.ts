@@ -53,8 +53,14 @@ export class ApiServer {
     return JSON.parse(raw)
   }
 
+  private static CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  } as const
+
   private json(res: ServerResponse, data: unknown, status = 200): void {
-    res.writeHead(status, { 'Content-Type': 'application/json' })
+    res.writeHead(status, { 'Content-Type': 'application/json', ...ApiServer.CORS_HEADERS })
     res.end(JSON.stringify(data))
   }
 
@@ -66,6 +72,12 @@ export class ApiServer {
     const path = url.pathname.replace('/api', '')
     const caller = url.searchParams.get('caller') ?? undefined
     const method = req.method ?? 'GET'
+
+    if (method === 'OPTIONS') {
+      res.writeHead(204, ApiServer.CORS_HEADERS)
+      res.end()
+      return
+    }
 
     try {
       // ── Agent-facing routes ──
@@ -350,7 +362,7 @@ export class ApiServer {
 
       if (method === 'GET' && path.match(/^\/pty\/[^/]+\/buffer$/)) {
         const ptyId = this.extractParam(path, 2)
-        this.json(res, this.service.getPtyBuffer(ptyId))
+        this.json(res, { buffer: this.service.getPtyBuffer(ptyId) ?? '' })
         return
       }
 
@@ -739,7 +751,7 @@ export class ApiServer {
 
   // ── Server lifecycle ──
 
-  async start(): Promise<number> {
+  async start(requestedPort = 0): Promise<number> {
     await mkdir(PARLOUR_DIR, { recursive: true })
 
     this.wss = new WebSocketServer({ noServer: true })
@@ -766,7 +778,7 @@ export class ApiServer {
     })
 
     return new Promise((resolve, reject) => {
-      this.httpServer!.listen(0, '127.0.0.1', async () => {
+      this.httpServer!.listen(requestedPort, '127.0.0.1', async () => {
         const addr = this.httpServer!.address()
         if (!addr || typeof addr === 'string') {
           reject(new Error('Failed to get server address'))

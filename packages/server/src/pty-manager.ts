@@ -182,7 +182,11 @@ export class PtyManager {
   }
 
   resize(ptyId: string, cols: number, rows: number): void {
-    this.ptys.get(ptyId)?.process.resize(cols, rows)
+    try {
+      this.ptys.get(ptyId)?.process.resize(cols, rows)
+    } catch {
+      // PTY file descriptor may be stale after restart
+    }
   }
 
   destroy(ptyId: string): void {
@@ -199,7 +203,11 @@ export class PtyManager {
 
   seedBuffer(ptyId: string, data: string): void {
     const instance = this.ptys.get(ptyId)
-    if (instance) instance.outputBuffer = data + instance.outputBuffer
+    if (!instance) return
+    const cleaned = data.replace(/\x1b\[\?(?:1004|2004|2026|25)[hl]/g, '')
+      .replace(/\x1b\[>[0-9]*u/g, '')
+      .replace(/\x1b\[<u/g, '')
+    instance.outputBuffer = cleaned + instance.outputBuffer
   }
 
   list(): string[] {

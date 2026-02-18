@@ -234,7 +234,7 @@ export class ChatRegistry {
       }).catch((err) => {
         lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
         log.error('Prompt delivery failed', { chatId, error: err.message })
-        this.updateChat(chatId, { status: 'failed' as ChatStatus })
+        this.updateChat(chatId, { status: 'error' })
       })
     }
 
@@ -308,7 +308,7 @@ export class ChatRegistry {
       }).catch((err) => {
         lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
         log.error('Prompt delivery failed', { chatId, parentId, error: err.message })
-        this.updateChat(chatId, { status: 'failed' as ChatStatus })
+        this.updateChat(chatId, { status: 'error' })
       })
     }
 
@@ -335,6 +335,10 @@ export class ChatRegistry {
   }
 
   async resumeChat(chatId: string): Promise<void> {
+    await this.startChat(chatId, true)
+  }
+
+  private async startChat(chatId: string, withResume: boolean): Promise<void> {
     const chat = this.getChat(chatId)
     if (!chat || chat.ptyId || !chat.dirPath) return
 
@@ -346,16 +350,16 @@ export class ChatRegistry {
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
     const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...this.themeEnv() }
 
-    const resumeArgs = getResumeArgs(resolveCliType(llmCommand))
-
-    const command = this.buildShellCommand(llmCommand, resumeArgs)
+    const args = withResume ? getResumeArgs(resolveCliType(llmCommand)) : []
+    const command = this.buildShellCommand(llmCommand, args)
     const ptyId = await this.ptyManager.create(chat.dirPath, undefined, command, undefined, env)
 
     let savedBuf: string | undefined
     try { savedBuf = await readFile(join(chat.dirPath, 'terminal-buffer'), 'utf-8') } catch {}
     if (savedBuf) this.ptyManager.seedBuffer(ptyId, savedBuf)
 
-    this.registerExitHandler(chatId, ptyId)
+    const startedAt = Date.now()
+    this.registerExitHandler(chatId, ptyId, undefined, withResume ? startedAt : undefined)
     this.registerActivityHandler(chatId, ptyId)
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
@@ -562,10 +566,20 @@ export class ChatRegistry {
     }
   }
 
-  private registerExitHandler(chatId: string, ptyId: string, onExit?: (exitCode: number) => void): void {
+  private registerExitHandler(chatId: string, ptyId: string, onExit?: (exitCode: number) => void, resumeStartedAt?: number): void {
     this.ptyManager.onExit(ptyId, (exitCode) => {
       const chat = this.getChat(chatId)
       if (!chat || chat.ptyId !== ptyId) return
+
+      if (resumeStartedAt && exitCode !== 0 && Date.now() - resumeStartedAt < 5000) {
+        log.info('Resume failed quickly, retrying without --continue', { chatId, exitCode })
+        this.updateChatInternal(chatId, { ptyId: null, status: 'done' })
+        this.pushToRenderer()
+        this.startChat(chatId, false).catch((err) => {
+          log.error('Fallback start failed', { chatId, error: String(err) })
+        })
+        return
+      }
 
       this.clearIdleTimer(chatId)
       const tracker = this.harnessTrackers.get(chatId)
@@ -594,7 +608,7 @@ export class ChatRegistry {
 
       const newStatus = exitCode === 0 ? 'done' : 'error'
       lifecycle.emit({ type: 'pty:exit', ptyId, chatId, exitCode })
-      lifecycle.emit({ type: 'chat:status', chatId, from: chat.status as ChatStatus, to: newStatus as ChatStatus })
+      lifecycle.emit({ type: 'chat:status', chatId, from: chat.status, to: newStatus })
 
       onExit?.(exitCode)
       const exited = this.getChat(chatId)

@@ -116,7 +116,8 @@ describe('API Server Integration', () => {
       await new Promise((r) => setTimeout(r, 500))
 
       const buf = await json(`/pty/${ptyId}/buffer`)
-      expect(typeof buf).toBe('string')
+      expect(buf).toHaveProperty('buffer')
+      expect(typeof buf.buffer).toBe('string')
 
       await api(`/pty/${ptyId}`, { method: 'DELETE' })
       const after = await json('/pty')

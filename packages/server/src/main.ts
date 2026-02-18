@@ -7,8 +7,7 @@ import { TaskScheduler } from './task-scheduler'
 import { ThemeManager } from './theme-manager'
 import { ParlourService } from './parlour-service'
 import { ApiServer } from './api-server'
-import { PARLOUR_DIR } from './parlour-dirs'
-import { ensureGlobalSkills } from './parlour-dirs'
+import { PARLOUR_DIR, ensureGlobalSkills } from './parlour-dirs'
 import { logger } from './logger'
 import { lifecycle } from './lifecycle'
 
@@ -63,7 +62,8 @@ await taskScheduler.loadAndStart().catch((err) => logger.error('Failed to load s
 const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, readSettings, themeManager, stateFile)
 const apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
 
-const port = await apiServer.start()
+const requestedPort = parseInt(values.port!, 10) || 3000
+const port = await apiServer.start(requestedPort)
 console.log(`PORT=${port}`)
 
 function shutdown(): void {
