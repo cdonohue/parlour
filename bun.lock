@@ -11,6 +11,7 @@
         "@xterm/xterm": "^6.0.0",
       },
       "devDependencies": {
+        "@playwright/test": "^1.52.0",
         "@types/react": "^19.0.0",
         "@types/react-dom": "^19.0.0",
         "turbo": "^2.5.0",

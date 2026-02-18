@@ -29,6 +29,7 @@
     "@types/react-dom": "^19.0.0",
     "turbo": "^2.5.0",
     "typescript": "^5.9.3",
+    "@playwright/test": "^1.52.0",
     "vitest": "^4.0.18"
   }
 }
