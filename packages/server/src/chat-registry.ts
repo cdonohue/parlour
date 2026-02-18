@@ -49,12 +49,15 @@ export class ChatRegistry {
   private chats: ChatRecord[] = []
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private harnessTrackers = new Map<string, HarnessTracker>()
+  private harnessUnsubs = new Map<string, () => void>()
   private ptyManager: PtyManager
   private settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] }
   private getTheme: () => 'dark' | 'light'
   private onStateChanged: (state: { chats: ChatRecord[] }) => void
   private stateListeners: Array<(state: { chats: ChatRecord[] }) => void> = []
   private persistTimer: ReturnType<typeof setTimeout> | null = null
+  private dirtyChats = new Set<string>()
+  private pendingPrompt = new Set<string>()
 
   constructor(
     ptyManager: PtyManager,
@@ -74,7 +77,7 @@ export class ChatRegistry {
   }
 
   getState(): { chats: ChatRecord[] } {
-    return { chats: this.chats }
+    return { chats: this.chats.filter((c) => !this.pendingPrompt.has(c.id)) }
   }
 
   getChat(id: string): ChatRecord | undefined {
@@ -82,7 +85,7 @@ export class ChatRegistry {
   }
 
   getChildren(parentId: string): ChatRecord[] {
-    return this.chats.filter((c) => c.parentId === parentId)
+    return this.chats.filter((c) => c.parentId === parentId && !this.pendingPrompt.has(c.id))
   }
 
   getChatDepth(chatId: string): number {
@@ -193,6 +196,8 @@ export class ChatRegistry {
   cleanup(): void {
     for (const timer of this.idleTimers.values()) clearTimeout(timer)
     this.idleTimers.clear()
+    for (const unsub of this.harnessUnsubs.values()) unsub()
+    this.harnessUnsubs.clear()
   }
 
   // ── Chat lifecycle ──
@@ -229,9 +234,13 @@ export class ChatRegistry {
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     if (opts.prompt) {
+      this.pendingPrompt.add(chatId)
       this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
+        this.pendingPrompt.delete(chatId)
         lifecycle.emit({ type: 'pty:prompt-delivered', ptyId, chatId })
+        this.pushToRenderer()
       }).catch((err) => {
+        this.pendingPrompt.delete(chatId)
         lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
         log.error('Prompt delivery failed', { chatId, error: err.message })
         this.updateChat(chatId, { status: 'error' })
@@ -273,39 +282,50 @@ export class ChatRegistry {
     const now = Date.now()
     const llmCommand = this.resolveLlmCommand(opts.llmCommand, parent.llmCommand)
     const dirPath = await createChatDir(chatId, parent.dirPath)
-    await copySkillsToChat(dirPath)
 
     let projects: ProjectInfo[] = []
-    if (opts.project) {
-      const project = await this.cloneProject(dirPath, opts.project.pathOrUrl, opts.project.branch, opts.project.base)
-      projects = [project]
+    let ptyId: string
+    try {
+      await copySkillsToChat(dirPath)
+
+      if (opts.project) {
+        const project = await this.cloneProject(dirPath, opts.project.pathOrUrl, opts.project.branch, opts.project.base)
+        projects = [project]
+      }
+
+      await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
+      await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
+
+      if (parent.ptyId) {
+        try {
+          const summary = await this.summarizeContext(parent.ptyId)
+          if (summary) {
+            const { appendFile } = await import('node:fs/promises')
+            await appendFile(join(dirPath, 'AGENTS.md'), `\n\n## Parent Context\n\n${summary}\n`, 'utf-8')
+          }
+        } catch {}
+      }
+
+      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, ...this.themeEnv() }
+      const command = this.buildShellCommand(llmCommand, [])
+      ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
+    } catch (err) {
+      await rm(dirPath, { recursive: true, force: true }).catch(() => {})
+      throw err
     }
-
-    await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
-    await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
-
-    if (parent.ptyId) {
-      try {
-        const summary = await this.summarizeContext(parent.ptyId)
-        if (summary) {
-          const { appendFile } = await import('node:fs/promises')
-          await appendFile(join(dirPath, 'AGENTS.md'), `\n\n## Parent Context\n\n${summary}\n`, 'utf-8')
-        }
-      } catch {}
-    }
-
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, ...this.themeEnv() }
-    const command = this.buildShellCommand(llmCommand, [])
-    const ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
 
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     if (opts.prompt) {
+      this.pendingPrompt.add(chatId)
       this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
+        this.pendingPrompt.delete(chatId)
         lifecycle.emit({ type: 'pty:prompt-delivered', ptyId, chatId })
+        this.pushToRenderer()
       }).catch((err) => {
+        this.pendingPrompt.delete(chatId)
         lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
         log.error('Prompt delivery failed', { chatId, parentId, error: err.message })
         this.updateChat(chatId, { status: 'error' })
@@ -388,6 +408,11 @@ export class ChatRegistry {
       const chat = this.getChat(cid)
       if (!chat) continue
       if (chat.ptyId) this.ptyManager.destroy(chat.ptyId)
+      this.clearIdleTimer(cid)
+      const unsub = this.harnessUnsubs.get(cid)
+      if (unsub) { unsub(); this.harnessUnsubs.delete(cid) }
+      this.harnessTrackers.delete(cid)
+      this.pendingPrompt.delete(cid)
       if (chat.dirPath) await rm(chat.dirPath, { recursive: true, force: true }).catch(() => {})
     }
 
@@ -511,16 +536,19 @@ export class ChatRegistry {
       const events = parser.feed(chatId, data)
       for (const event of events) {
         lifecycle.emit(event)
-        tracker.handleEvent(event)
       }
     })
 
-    lifecycle.on('harness:*', (event) => {
+    const prevUnsub = this.harnessUnsubs.get(chatId)
+    if (prevUnsub) prevUnsub()
+
+    const unsub = lifecycle.on('harness:*', (event) => {
       const he = event as HarnessEvent
       if ('chatId' in he && he.chatId === chatId) {
         tracker.handleEvent(he)
       }
     })
+    this.harnessUnsubs.set(chatId, unsub)
   }
 
   private updateChatInternal(id: string, partial: Partial<ChatRecord>): void {
@@ -534,7 +562,7 @@ export class ChatRegistry {
       const chat = this.getChat(chatId)
       if (!chat || chat.ptyId !== ptyId) return
 
-      if (chat.status === 'idle') {
+      if (chat.status === 'idle' && !this.pendingPrompt.has(chatId)) {
         this.updateChatInternal(chatId, { status: 'active' })
         this.pushToRenderer()
       }
@@ -550,7 +578,7 @@ export class ChatRegistry {
 
     this.idleTimers.set(chatId, setTimeout(() => {
       const chat = this.getChat(chatId)
-      if (!chat?.ptyId || chat.status === 'done' || chat.status === 'error') return
+      if (!chat?.ptyId || chat.status === 'done' || chat.status === 'error' || this.pendingPrompt.has(chatId)) return
       this.updateChatInternal(chatId, { status: 'idle' })
       const idled = this.getChat(chatId)
       if (idled) this.persistChat(idled)
@@ -582,6 +610,8 @@ export class ChatRegistry {
       }
 
       this.clearIdleTimer(chatId)
+      const harnessUnsub = this.harnessUnsubs.get(chatId)
+      if (harnessUnsub) { harnessUnsub(); this.harnessUnsubs.delete(chatId) }
       const tracker = this.harnessTrackers.get(chatId)
       if (tracker) {
         exitCode === 0 ? tracker.markDone() : tracker.markError()
@@ -677,6 +707,7 @@ export class ChatRegistry {
       clearTimeout(this.persistTimer)
       this.persistTimer = null
     }
+    this.dirtyChats.clear()
 
     for (const chat of this.chats) {
       if (!chat.ptyId) continue
@@ -694,11 +725,20 @@ export class ChatRegistry {
   }
 
   private persistChat(chat: ChatRecord): void {
-    if (this.persistTimer) clearTimeout(this.persistTimer)
+    this.dirtyChats.add(chat.id)
+    if (this.persistTimer) return
     this.persistTimer = setTimeout(() => {
-      this.writeChatMetadata(chat).catch((err) => {
-        log.error('Failed to persist chat metadata', { chatId: chat.id, error: String(err) })
-      })
+      this.persistTimer = null
+      const ids = [...this.dirtyChats]
+      this.dirtyChats.clear()
+      for (const id of ids) {
+        const c = this.getChat(id)
+        if (c) {
+          this.writeChatMetadata(c).catch((err) => {
+            log.error('Failed to persist chat metadata', { chatId: id, error: String(err) })
+          })
+        }
+      }
     }, 500)
   }
 
@@ -740,7 +780,7 @@ export class ChatRegistry {
   }
 
   private pushToRenderer(): void {
-    const state = { chats: this.chats }
+    const state = { chats: this.chats.filter((c) => !this.pendingPrompt.has(c.id)) }
     this.onStateChanged(state)
     for (const cb of this.stateListeners) cb(state)
   }
