@@ -5,7 +5,8 @@ export default defineConfig({
   main: {
     resolve: {
       alias: {
-        '@shared': resolve(__dirname, 'src/shared')
+        '@shared': resolve(__dirname, 'src/shared'),
+        '@parlour/server': resolve(__dirname, '../packages/server/src/index.ts')
       }
     }
   },

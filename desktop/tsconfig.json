@@ -16,6 +16,7 @@
     "paths": {
       "@shared/*": ["src/shared/*"],
       "@parlour/api-types": ["../packages/api-types/src/index.ts"],
+      "@parlour/server": ["../packages/server/src/index.ts"],
       "@parlour/app": ["../packages/app/src/index.ts"],
       "@parlour/app/*": ["../packages/app/src/*"],
       "@parlour/platform": ["../packages/platform/src/index.ts"],

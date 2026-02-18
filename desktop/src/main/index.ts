@@ -1,15 +1,11 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
-import { ApiServer } from './api-server'
-import { ParlourService } from './parlour-service'
-import { PtyManager } from './pty-manager'
-import { ChatRegistry } from './chat-registry'
-import { TaskScheduler } from './task-scheduler'
+import {
+  ApiServer, ParlourService, PtyManager, ChatRegistry, TaskScheduler,
+  ensureGlobalSkills, logger, lifecycle,
+} from '@parlour/server'
 import { IPC } from '../shared/ipc-channels'
-import { ensureGlobalSkills } from './parlour-dirs'
-import { logger } from './logger'
-import { lifecycle } from './lifecycle'
 
 let mainWindow: BrowserWindow | null = null
 const ptyManager = new PtyManager()

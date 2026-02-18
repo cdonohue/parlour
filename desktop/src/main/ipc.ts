@@ -3,16 +3,11 @@ import { join } from 'path'
 import { homedir } from 'os'
 import { mkdir, rm, readFile } from 'fs/promises'
 import { IPC } from '../shared/ipc-channels'
-import { PtyManager } from './pty-manager'
-import { GitService } from './git-service'
-import { ForgeService } from './forge-service'
-import { FileService } from './file-service'
-import { TaskScheduler } from './task-scheduler'
-import { ChatRegistry } from './chat-registry'
-import { loadJsonFile, saveJsonFile } from './claude-config'
-import { PARLOUR_DIR, createChatDir, writeAgentsMd, getClaudeSessionId } from './parlour-dirs'
-import { detectInstalledClis } from './cli-detect'
-import { getCliBaseDefaults } from './cli-config'
+import {
+  PtyManager, GitService, ForgeService, FileService, TaskScheduler, ChatRegistry,
+  loadJsonFile, saveJsonFile, PARLOUR_DIR, createChatDir, writeAgentsMd,
+  getClaudeSessionId, detectInstalledClis, getCliBaseDefaults,
+} from '@parlour/server'
 
 let ptyManager: PtyManager
 let taskScheduler: TaskScheduler

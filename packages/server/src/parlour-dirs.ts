@@ -75,7 +75,7 @@ export interface ProjectInfo {
   path: string
   branch?: string
   isGitRepo: boolean
-  prInfo?: import('../shared/github-types').PrInfo
+  prInfo?: import('@parlour/api-types').PrInfo
 }
 
 export async function createChatDir(chatId: string, parentDirPath?: string): Promise<string> {

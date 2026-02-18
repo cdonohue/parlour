@@ -1,6 +1,6 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
-import type { PrInfo, PrLookupResult, CheckStatus, PrState } from '../shared/github-types'
+import type { PrInfo, PrLookupResult, CheckStatus, PrState } from '@parlour/api-types'
 
 const execFileAsync = promisify(execFile)
 
