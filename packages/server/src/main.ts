@@ -62,7 +62,7 @@ await taskScheduler.loadAndStart().catch((err) => logger.error('Failed to load s
 const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, readSettings, themeManager, stateFile)
 const apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
 
-const requestedPort = parseInt(values.port!, 10) || 3000
+const requestedPort = values.port !== undefined ? parseInt(values.port, 10) : 3000
 const port = await apiServer.start(requestedPort)
 console.log(`PORT=${port}`)
 

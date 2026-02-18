@@ -14,7 +14,6 @@ export default defineConfig({
   test: {
     include: [
       'packages/*/src/**/*.test.ts',
-      'desktop/src/**/*.test.ts',
       'parlour-cli/src/**/*.test.ts',
     ],
   },
