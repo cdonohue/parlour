@@ -13,12 +13,13 @@
     "ws": "^8.19.0"
   },
   "scripts": {
-    "dev:server": "bun --watch src/main.ts",
+    "dev:server": "tsx --watch src/main.ts",
     "typecheck": "tsc --noEmit",
     "test:integration": "vitest run src/__tests__/"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }

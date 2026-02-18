@@ -2,18 +2,13 @@ import { defineConfig } from 'electron-vite'
 import { resolve } from 'path'
 
 export default defineConfig({
-  main: {
-    resolve: {
-      alias: {
-        '@shared': resolve(__dirname, 'src/shared'),
-        '@parlour/server': resolve(__dirname, '../packages/server/src/index.ts')
-      }
-    }
-  },
+  main: {},
   preload: {
     resolve: {
       alias: {
-        '@shared': resolve(__dirname, 'src/shared')
+        '@shared': resolve(__dirname, 'src/shared'),
+        '@parlour/platform': resolve(__dirname, '../packages/platform/src/index.ts'),
+        '@parlour/api-types': resolve(__dirname, '../packages/api-types/src/index.ts'),
       }
     }
   },

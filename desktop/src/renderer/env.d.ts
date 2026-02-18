@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 
-import type { ElectronAPI } from '../preload/index'
+import type { PlatformAdapter } from '@parlour/platform'
 
 declare global {
   interface Window {
-    api: ElectronAPI
+    api: PlatformAdapter
   }
 }
 

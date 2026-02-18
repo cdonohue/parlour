@@ -1,17 +1,13 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell, dialog } from 'electron'
 import { join } from 'path'
-import { registerIpcHandlers } from './ipc'
-import {
-  ApiServer, ParlourService, PtyManager, ChatRegistry, TaskScheduler, ThemeManager,
-  ensureGlobalSkills, logger, lifecycle,
-} from '@parlour/server'
+import { spawn, type ChildProcess } from 'child_process'
+import { readFileSync, mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
 import { IPC } from '../shared/ipc-channels'
 
 let mainWindow: BrowserWindow | null = null
-const ptyManager = new PtyManager()
-let chatRegistry: ChatRegistry | null = null
-let apiServer: ApiServer | null = null
-let taskScheduler: TaskScheduler | null = null
+let serverProcess: ChildProcess | null = null
+let serverPort = 0
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -27,24 +23,19 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false, // needed for node-pty IPC
+      sandbox: false,
     },
   })
 
-  // Show window when ready to avoid white flash (skip in tests)
   if (!process.env.CI_TEST) {
-    mainWindow.on('ready-to-show', () => {
-      mainWindow?.show()
-    })
+    mainWindow.on('ready-to-show', () => mainWindow?.show())
   }
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  // Load renderer
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
@@ -52,19 +43,59 @@ function createWindow(): void {
   }
 }
 
+function readPersistedTheme(dataDir: string): string {
+  try {
+    const data = readFileSync(join(dataDir, 'parlour-state.json'), 'utf-8')
+    return JSON.parse(data)?.settings?.theme ?? 'dark'
+  } catch {
+    return 'dark'
+  }
+}
+
+function spawnServer(dataDir: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const serverEntry = join(__dirname, '../../../packages/server/src/main.ts')
+    const tsx = join(__dirname, '../../../node_modules/.bin/tsx')
+    serverProcess = spawn(tsx, [serverEntry, '--port', '0', '--data-dir', dataDir], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    let resolved = false
+
+    serverProcess.stdout!.on('data', (chunk: Buffer) => {
+      if (resolved) return
+      const match = chunk.toString().match(/PORT=(\d+)/)
+      if (match) {
+        resolved = true
+        resolve(parseInt(match[1], 10))
+      }
+    })
+
+    serverProcess.stderr!.on('data', (chunk: Buffer) => {
+      console.error('[server]', chunk.toString().trimEnd())
+    })
+
+    serverProcess.on('error', (err) => {
+      if (!resolved) reject(err)
+    })
+
+    serverProcess.on('exit', (code) => {
+      if (!resolved) reject(new Error(`Server exited with code ${code}`))
+    })
+  })
+}
+
 app.setName('Parlour')
 
-// Isolate test data so e2e tests never touch real app state
+let dataDir = app.getPath('userData')
+
 if (process.env.CI_TEST) {
-  const { mkdtempSync } = require('fs')
-  const { join } = require('path')
-  const testData = mkdtempSync(join(require('os').tmpdir(), 'parlour-test-'))
+  const testData = mkdtempSync(join(tmpdir(), 'parlour-test-'))
   app.setPath('userData', testData)
+  dataDir = testData
 }
 
 app.whenReady().then(async () => {
-  // Custom menu: keep standard Edit shortcuts (copy/paste/undo) but remove
-  // Cmd+W (close window) and Cmd+N (new window) so they reach the renderer
   const menu = Menu.buildFromTemplate([
     {
       label: app.name,
@@ -97,94 +128,58 @@ app.whenReady().then(async () => {
   ])
   Menu.setApplicationMenu(menu)
 
-  const stateFile = join(app.getPath('userData'), 'parlour-state.json')
-  const settingsGetter = (): { llmCommand: string; maxChatDepth: number; projectRoots: string[]; theme: string } => {
-    try {
-      const data = require('fs').readFileSync(stateFile, 'utf-8')
-      const state = JSON.parse(data)
-      return {
-        llmCommand: state?.settings?.llmCommand ?? 'claude',
-        maxChatDepth: state?.settings?.maxChatDepth ?? 2,
-        projectRoots: state?.settings?.projectRoots ?? [],
-        theme: state?.settings?.theme ?? 'dark',
-      }
-    } catch {
-      return { llmCommand: 'claude', maxChatDepth: 2, projectRoots: [], theme: 'dark' }
-    }
-  }
+  const themeMode = readPersistedTheme(dataDir)
+  nativeTheme.themeSource = themeMode === 'system' ? 'system' : (themeMode as 'light' | 'dark')
 
-  const themeManager = new ThemeManager()
-  const persistedTheme = settingsGetter().theme ?? 'dark'
-  const themeMode = persistedTheme as 'system' | 'dark' | 'light'
-  nativeTheme.themeSource = themeMode === 'system' ? 'system' : themeMode
-  themeManager.setMode(themeMode)
-  themeManager.setResolved(nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+  serverPort = await spawnServer(dataDir)
 
-  ipcMain.handle(IPC.THEME_SET_MODE, (_e, mode: string) => {
+  // Sync IPC: preload reads server URL synchronously at startup
+  ipcMain.on(IPC.SERVER_GET_URL, (event) => {
+    event.returnValue = `http://localhost:${serverPort}`
+  })
+
+  ipcMain.handle(IPC.APP_SELECT_DIRECTORY, async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Select Repository',
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle(IPC.SHELL_OPEN_EXTERNAL, async (_e, url: string) => {
+    await shell.openExternal(url)
+  })
+
+  ipcMain.handle(IPC.THEME_SET_MODE, async (_e, mode: string) => {
     nativeTheme.themeSource = mode === 'system' ? 'system' : (mode as 'light' | 'dark')
-    themeManager.setMode(mode as 'system' | 'dark' | 'light')
+    fetch(`http://localhost:${serverPort}/api/theme/mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    }).catch(() => {})
   })
 
   nativeTheme.on('updated', () => {
     const resolved = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
-    themeManager.setResolved(resolved)
     for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send(IPC.THEME_RESOLVED_CHANGED, resolved)
+      if (!win.isDestroyed()) win.webContents.send(IPC.THEME_RESOLVED_CHANGED, resolved)
     }
   })
-
-  const lifecycleLog = logger.child({ source: 'lifecycle' })
-  lifecycle.on('*', (event) => lifecycleLog.info(event.type, event))
-
-  await ensureGlobalSkills().catch((err) => logger.error('Failed to ensure global skills', { error: String(err) }))
-
-  chatRegistry = new ChatRegistry(
-    ptyManager,
-    settingsGetter,
-    () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
-    (state) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        if (!win.isDestroyed()) win.webContents.send(IPC.CHAT_REGISTRY_STATE_CHANGED, state)
-      }
-    },
-  )
-  await chatRegistry.loadFromDisk().catch((err) => logger.error('Failed to load chat registry', { error: String(err) }))
-  chatRegistry.reconcilePtys()
-
-  taskScheduler = new TaskScheduler(chatRegistry, settingsGetter, (schedules) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.isDestroyed()) win.webContents.send(IPC.SCHEDULE_CHANGED, schedules)
-    }
-  })
-  await taskScheduler.loadAndStart().catch((err) => logger.error('Failed to load schedules', { error: String(err) }))
-
-  registerIpcHandlers(ptyManager, taskScheduler, chatRegistry)
-
-  const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, settingsGetter, themeManager, stateFile)
-  apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
-  apiServer.start().catch((err) => logger.error('API server failed to start', { error: String(err) }))
-
-  ipcMain.handle(IPC.API_GET_PORT, () => apiServer?.getPort() ?? 0)
 
   createWindow()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
-    }
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', () => {
-  chatRegistry?.cleanup()
-  chatRegistry?.flushPersist()
-  taskScheduler?.destroyAll()
-  apiServer?.stop()
-  ptyManager.destroyAll()
+  if (serverProcess && !serverProcess.killed) {
+    serverProcess.kill('SIGTERM')
+  }
 })

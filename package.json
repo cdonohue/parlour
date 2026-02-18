@@ -2,9 +2,9 @@
   "name": "parlour-root",
   "private": true,
   "packageManager": "bun@1.3.3",
-  "workspaces": ["desktop", "packages/*", "parlour-cli"],
+  "workspaces": ["desktop", "packages/*", "parlour-cli", "tauri"],
   "scripts": {
-    "dev": "turbo dev --filter=desktop",
+    "dev": "bun run --cwd desktop dev",
     "dev:server": "turbo dev:server --filter=@parlour/server",
     "dev:browser": "turbo dev --filter=@parlour/app",
     "build": "turbo build",
@@ -25,11 +25,12 @@
     "@xterm/xterm": "^6.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "tsx": "^4.21.0",
     "turbo": "^2.5.0",
     "typescript": "^5.9.3",
-    "@playwright/test": "^1.52.0",
     "vitest": "^4.0.18"
   }
 }
