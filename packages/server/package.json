@@ -12,6 +12,11 @@
     "node-pty": "^1.1.0",
     "ws": "^8.19.0"
   },
+  "scripts": {
+    "dev:server": "bun --watch src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test:integration": "vitest run src/__tests__/"
+  },
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3"

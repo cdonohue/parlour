@@ -3,14 +3,19 @@
   "private": true,
   "workspaces": ["desktop", "packages/*", "parlour-cli"],
   "scripts": {
-    "dev": "bun run --cwd desktop dev",
-    "build": "bun run --cwd desktop build",
-    "test": "bun run --cwd desktop test",
+    "dev": "turbo dev --filter=desktop",
+    "dev:server": "turbo dev:server --filter=@parlour/server",
+    "dev:browser": "turbo dev --filter=@parlour/app",
+    "build": "turbo build",
+    "check": "turbo typecheck && bunx vitest run",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test:unit test:integration test:e2e",
+    "test:unit": "bunx vitest run",
+    "test:integration": "turbo test:integration",
+    "test:e2e": "turbo test:e2e",
     "rebuild": "bun run --cwd desktop rebuild",
     "dist": "bun run --cwd desktop dist",
-    "dev:browser": "bun run --cwd packages/app dev",
-    "storybook": "bun run --cwd packages/ui storybook",
-    "test:unit": "bunx vitest run"
+    "storybook": "bun run --cwd packages/ui storybook"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -19,6 +24,7 @@
     "@xterm/xterm": "^6.0.0"
   },
   "devDependencies": {
+    "turbo": "^2.5.0",
     "vitest": "^4.0.18"
   }
 }

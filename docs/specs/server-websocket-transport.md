@@ -238,7 +238,174 @@ Platform-specific ops (`selectDirectory`, `openExternal`) return 501 from server
 - Resize browser → terminal resizes
 - Close/reopen browser tab → reconnects, terminal buffer replays
 
-## Phase 6: Electron as sidecar launcher
+## Phase 5b: Testing Infrastructure + Turborepo
+
+### Turborepo setup
+
+Add `turbo` as a root devDependency and create `turbo.json`:
+
+```json
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "out/**"]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "dev:server": {
+      "persistent": true,
+      "cache": false
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test:unit": {
+      "dependsOn": ["^build"]
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    }
+  }
+}
+```
+
+Root `package.json` script updates:
+```json
+{
+  "dev": "turbo dev --filter=desktop",
+  "dev:server": "turbo dev:server --filter=@parlour/server",
+  "dev:browser": "turbo dev --filter=@parlour/app",
+  "build": "turbo build",
+  "check": "turbo typecheck && bunx vitest run",
+  "typecheck": "turbo typecheck",
+  "test": "turbo test:unit test:integration test:e2e",
+  "test:unit": "bunx vitest run",
+  "test:integration": "turbo test:integration",
+  "test:e2e": "turbo test:e2e"
+}
+```
+
+`check` is the primary LLM feedback command — typecheck all packages in parallel (turbo-cached), then run vitest unit tests. Fast enough to run after every change.
+
+### Test layer 1: Server integration tests
+
+Location: `packages/server/src/__tests__/api-server.test.ts`
+
+Spin up a real `ApiServer` + services in-process (no child process, no network race). Hit every REST endpoint, verify responses.
+
+Test fixture:
+- `beforeAll`: create temp data dir, instantiate PtyManager + ChatRegistry + TaskScheduler + ThemeManager + ParlourService + ApiServer, call `server.start()`
+- `afterAll`: `server.stop()`, cleanup temp dir
+
+Coverage:
+- Health check
+- Git routes (use a temp git repo fixture): status, diff, branches, stage, commit, is-repo, current-branch
+- Chat registry: create → get state → update → retitle → delete
+- PTY: create → list → get buffer → destroy
+- CLI: detect, defaults
+- State: save → load round-trip
+- Theme: set mode → verify response
+- App: data-path, parlour-path, openers
+- Schedule: create → toggle → update → cancel
+- File: write → read round-trip
+
+Test runner: vitest (already configured at root, add `packages/server/src/__tests__/` to include glob — already matches).
+
+### Test layer 2: WebSocket protocol tests
+
+Location: `packages/server/src/__tests__/ws-protocol.test.ts`
+
+Same in-process server fixture. Connect a raw `ws` WebSocket client.
+
+Coverage:
+- Connect → receive `hello` message with version
+- `state:subscribe` → receive `state:chats` + `state:schedules`
+- PTY subscribe flow: create PTY via REST → `pty:subscribe` → receive `pty:buffer` → write to PTY → receive `pty:data`
+- `pty:resize` → no error (fire-and-forget)
+- `pty:unsubscribe` → stop receiving data
+- `events:subscribe` → create chat via REST → receive lifecycle `event`
+- `theme:resolved` client→server → broadcast to other clients
+- Client disconnect → no crash, cleanup
+- Multiple clients subscribing to same PTY
+
+### Test layer 3: Browser e2e (Playwright)
+
+Location: `e2e/` (root level, not desktop-specific)
+
+New Playwright config at root: `playwright.config.ts` with a `browser` project that runs `dev:server` as a webServer dependency.
+
+```typescript
+import { defineConfig } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './e2e',
+  timeout: 60000,
+  retries: 1,
+  projects: [
+    {
+      name: 'browser',
+      use: { browserName: 'chromium' },
+    },
+  ],
+  webServer: {
+    command: 'bun run dev:test',  // starts server + browser app
+    port: 5173,
+    reuseExistingServer: !process.env.CI,
+    timeout: 30000,
+  },
+})
+```
+
+`dev:test` script: starts `@parlour/server` on a fixed port, then `@parlour/app` Vite dev server pointing at it. Turbo orchestrates both.
+
+Test cases:
+- App loads, sidebar visible
+- Create new chat → terminal appears
+- Terminal receives PTY output (verify xterm has content)
+- Type in terminal → input reaches PTY
+- Chat appears in sidebar after creation
+- Delete chat → removed from sidebar
+- Settings panel opens/closes
+- Theme toggle → UI updates
+- Automations panel: create schedule → appears in list
+- Multi-tab: open second tab → both show same chats
+- Reconnect: disconnect WS → reconnects → state restored
+
+### Test layer 4: CLI integration tests
+
+Location: `parlour-cli/src/__tests__/integration.test.ts`
+
+Start server in-process, write port file, run `parlour` CLI commands against it.
+
+Coverage:
+- `parlour status` → returns health
+- `parlour dispatch "test"` → creates chat, returns ID
+- `parlour list-children` → shows dispatched chat
+- `parlour schedule list` → returns schedules
+- `parlour hook harness:thinking` → emits event
+
+### Verification
+
+```bash
+bun run check             # typecheck + unit tests (LLM feedback loop)
+turbo test:integration    # vitest — server API + WS + CLI tests
+turbo test:e2e            # playwright — browser e2e
+bun run test              # all layers (unit + integration + e2e)
+```
+
+## Phase 7: Electron as sidecar launcher
 
 ### `desktop/src/main/index.ts`
 - On `app.whenReady()`: spawn `@parlour/server` as child process
@@ -269,7 +436,7 @@ Platform-specific ops (`selectDirectory`, `openExternal`) return 501 from server
 - `bun run test` passes
 - Kill and restart Electron → reconnects to server, PTYs survive (if server runs independently)
 
-## Phase 7: Tauri shell (future, enabled by Phases 1-5)
+## Phase 8: Tauri shell (future, enabled by Phases 1-5)
 
 Not implemented in this plan, but the architecture makes it trivial. Tauri is a thin shell — no Rust reimplementation of services.
 
@@ -311,16 +478,16 @@ const adapter = createWebSocketAdapter(`ws://localhost:${port}`, {
 | `desktop/src/main/pty-manager.ts` | Phase 1: decouple from WebContents |
 | `desktop/src/main/chat-registry.ts` | Phase 1: inject callbacks, remove BrowserWindow |
 | `desktop/src/main/task-scheduler.ts` | Phase 1: inject callback |
-| `desktop/src/main/index.ts` | Phase 1: wire callbacks; Phase 6: sidecar launcher |
+| `desktop/src/main/index.ts` | Phase 1: wire callbacks; Phase 7: sidecar launcher |
 | `packages/api-types/src/ws-protocol.ts` | Phase 3: message types |
 | `packages/server/src/index.ts` | Phase 2: server entry |
 | `packages/server/src/ws-server.ts` | Phase 3: WebSocket handler |
 | `packages/server/src/api-server.ts` | Phase 4: expanded REST routes |
 | `packages/platform/src/ws-adapter.ts` | Phase 5: client adapter |
 | `packages/app/dev/main.tsx` | Phase 5: switch from mock to real |
-| `docs/specs/phase-c-tauri.md` | Superseded by Phase 7 approach |
+| `docs/specs/phase-c-tauri.md` | Superseded by Phase 8 approach |
 
-## End-to-end verification (after Phase 6)
+## End-to-end verification (after Phase 7)
 
 ### Local dev (browser)
 ```bash

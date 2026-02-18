@@ -1,4 +1,5 @@
 node_modules/
+.turbo/
 pnpm-lock.yaml
 .claude/settings.local.json
 .playwright-mcp/

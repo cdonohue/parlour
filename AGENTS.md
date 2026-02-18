@@ -6,12 +6,20 @@ macOS app for running AI agents in parallel with integrated terminal, git, and a
 
 All from repo root:
 
+    bun run check       # Typecheck all packages + run unit tests (fast feedback loop)
+    bun run typecheck   # Typecheck all packages (turbo, parallel, cached)
+    bun run test:unit   # Vitest unit tests
     bun run dev         # Dev server + Electron
+    bun run dev:server  # Standalone server (bun --watch, auto-reload)
+    bun run dev:browser # Browser app (Vite HMR)
     bun run build       # Production build
-    bun run test        # Playwright e2e tests
+    bun run test        # All test layers (unit + integration + e2e)
+    bun run test:e2e    # Playwright e2e tests
     bun run rebuild     # Rebuild native modules (node-pty)
     bun run dist        # Package signed macOS DMG
     bun run storybook   # @parlour/ui component dev
+
+After making changes, run `bun run check` to verify.
 
 ## Repo Structure
 
