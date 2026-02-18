@@ -7,6 +7,7 @@ export type ClientMessage =
   | { type: 'pty:resize'; ptyId: string; cols: number; rows: number }
   | { type: 'state:subscribe' }
   | { type: 'events:subscribe'; filters?: string[] }
+  | { type: 'theme:resolved'; resolved: 'dark' | 'light' }
 
 export type ServerMessage =
   | { type: 'hello'; version: string }
@@ -14,6 +15,8 @@ export type ServerMessage =
   | { type: 'pty:buffer'; ptyId: string; data: string }
   | { type: 'pty:title'; ptyId: string; title: string }
   | { type: 'pty:exit'; ptyId: string; exitCode: number }
+  | { type: 'pty:firstInput'; ptyId: string; input: string }
   | { type: 'state:chats'; chats: unknown[] }
   | { type: 'state:schedules'; schedules: unknown[] }
   | { type: 'event'; event: LifecycleEvent }
+  | { type: 'theme:resolved'; resolved: 'dark' | 'light' }

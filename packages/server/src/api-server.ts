@@ -26,6 +26,8 @@ export class ApiServer {
   private httpServer: HttpServer | null = null
   private wss: WebSocketServer | null = null
   private port = 0
+  private wsClients = new Set<WsClient>()
+  private themeUnsub: (() => void) | null = null
 
   constructor(
     private service: ParlourService,
@@ -35,6 +37,12 @@ export class ApiServer {
 
   private send(ws: WebSocket, msg: ServerMessage): void {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
+  }
+
+  private broadcast(msg: ServerMessage): void {
+    for (const client of this.wsClients) {
+      this.send(client.ws, msg)
+    }
   }
 
   private async readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -50,12 +58,19 @@ export class ApiServer {
     res.end(JSON.stringify(data))
   }
 
+  private extractParam(path: string, index: number): string {
+    return decodeURIComponent(path.split('/')[index])
+  }
+
   private async handleApi(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
     const path = url.pathname.replace('/api', '')
     const caller = url.searchParams.get('caller') ?? undefined
+    const method = req.method ?? 'GET'
 
     try {
-      if (req.method === 'POST' && path === '/dispatch') {
+      // ── Agent-facing routes ──
+
+      if (method === 'POST' && path === '/dispatch') {
         const body = await this.readBody(req)
         const parentId = (body.parent_chat_id as string) ?? caller
         lifecycle.emit({ type: 'cli:dispatch', chatId: parentId ?? '', parentId, prompt: body.prompt as string })
@@ -67,8 +82,8 @@ export class ApiServer {
         return
       }
 
-      if (req.method === 'GET' && path.startsWith('/status/')) {
-        const chatId = path.split('/')[2]
+      if (method === 'GET' && path.startsWith('/status/')) {
+        const chatId = this.extractParam(path, 2)
         if (caller) lifecycle.emit({ type: 'cli:status', chatId: caller, queriedId: chatId })
         const status = this.service.getStatus(chatId)
         if (!status) { this.json(res, { error: 'Chat not found' }, 404); return }
@@ -76,13 +91,13 @@ export class ApiServer {
         return
       }
 
-      if (req.method === 'GET' && path.startsWith('/children/')) {
-        const parentId = path.split('/')[2]
+      if (method === 'GET' && path.startsWith('/children/')) {
+        const parentId = this.extractParam(path, 2)
         this.json(res, this.service.getChildren(parentId))
         return
       }
 
-      if (req.method === 'POST' && path === '/report') {
+      if (method === 'POST' && path === '/report') {
         const body = await this.readBody(req)
         const chatId = body.chat_id as string
         const parentId = body.parent_id as string
@@ -93,13 +108,13 @@ export class ApiServer {
         return
       }
 
-      if (req.method === 'GET' && path === '/schedules') {
+      if (method === 'GET' && path === '/schedules') {
         if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'list' })
         this.json(res, this.service.listSchedules())
         return
       }
 
-      if (req.method === 'POST' && path === '/schedules') {
+      if (method === 'POST' && path === '/schedules') {
         const body = await this.readBody(req)
         const cron = body.cron as string | undefined
         const at = body.at as string | undefined
@@ -112,8 +127,8 @@ export class ApiServer {
         return
       }
 
-      if (req.method === 'POST' && path.match(/^\/schedules\/[^/]+$/)) {
-        const id = path.split('/')[2]
+      if (method === 'POST' && path.match(/^\/schedules\/[^/]+$/)) {
+        const id = this.extractParam(path, 2)
         const body = await this.readBody(req)
         if (body.action === 'cancel') {
           this.service.cancelSchedule(id)
@@ -123,22 +138,37 @@ export class ApiServer {
         return
       }
 
-      if (req.method === 'POST' && path.match(/^\/schedules\/[^/]+\/run$/)) {
-        const id = path.split('/')[2]
+      if (method === 'POST' && path.match(/^\/schedules\/[^/]+\/run$/)) {
+        const id = this.extractParam(path, 2)
         this.service.runSchedule(id)
         if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'run' })
         this.json(res, { ok: true })
         return
       }
 
-      if (req.method === 'GET' && path.startsWith('/projects/')) {
-        const chatId = path.split('/')[2]
+      if (method === 'PATCH' && path.match(/^\/schedules\/[^/]+$/)) {
+        const id = this.extractParam(path, 2)
+        const body = await this.readBody(req)
+        this.service.updateSchedule(id, body as Parameters<ParlourService['updateSchedule']>[1])
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path.match(/^\/schedules\/[^/]+\/toggle$/)) {
+        const id = this.extractParam(path, 2)
+        const toggled = this.service.toggleSchedule(id)
+        this.json(res, { ok: toggled })
+        return
+      }
+
+      if (method === 'GET' && path.startsWith('/projects/')) {
+        const chatId = this.extractParam(path, 2)
         if (caller) lifecycle.emit({ type: 'cli:project', chatId: caller, action: 'list' })
         this.json(res, await this.service.listProjects(chatId))
         return
       }
 
-      if (req.method === 'POST' && path === '/projects/open') {
+      if (method === 'POST' && path === '/projects/open') {
         const body = await this.readBody(req)
         const chatId = body.chat_id as string
         if (caller) lifecycle.emit({ type: 'cli:project', chatId: caller, action: 'open' })
@@ -150,16 +180,325 @@ export class ApiServer {
         return
       }
 
-      if (req.method === 'GET' && path === '/events') {
+      if (method === 'GET' && path === '/events') {
         this.handleSSE(res, url)
         return
       }
 
-      if (req.method === 'POST' && path === '/hooks') {
+      if (method === 'POST' && path === '/hooks') {
         const body = await this.readBody(req)
         const chatId = (body.chat_id as string) ?? caller ?? ''
         this.service.handleHook(chatId, body.event as string, body.data as Record<string, unknown> | undefined)
         this.json(res, { ok: true })
+        return
+      }
+
+      // ── Git routes ──
+
+      if (method === 'POST' && path === '/git/status') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitStatus(body.repoPath as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/diff') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitDiff(body.repoPath as string, body.staged as boolean))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/file-diff') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitFileDiff(body.repoPath as string, body.filePath as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/branches') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitBranches(body.repoPath as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/stage') {
+        const body = await this.readBody(req)
+        await this.service.gitStage(body.repoPath as string, body.paths as string[])
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/git/unstage') {
+        const body = await this.readBody(req)
+        await this.service.gitUnstage(body.repoPath as string, body.paths as string[])
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/git/discard') {
+        const body = await this.readBody(req)
+        await this.service.gitDiscard(body.repoPath as string, body.paths as string[], body.untracked as string[])
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/git/commit') {
+        const body = await this.readBody(req)
+        await this.service.gitCommit(body.repoPath as string, body.message as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/git/current-branch') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitCurrentBranch(body.repoPath as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/is-repo') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitIsRepo(body.dirPath as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/parent-branch') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitParentBranch(body.repoPath as string, body.branch as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/git/clone-bare') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.gitCloneBare(body.url as string, body.targetDir as string))
+        return
+      }
+
+      // ── Chat registry routes ──
+
+      if (method === 'GET' && path === '/chats') {
+        this.json(res, this.service.getRegistryState())
+        return
+      }
+
+      if (method === 'POST' && path === '/chats') {
+        const body = await this.readBody(req)
+        const result = await this.service.createChat(body as Parameters<ParlourService['createChat']>[0])
+        this.json(res, result)
+        return
+      }
+
+      if (method === 'POST' && path.match(/^\/chats\/[^/]+\/child$/)) {
+        const parentId = this.extractParam(path, 2)
+        const body = await this.readBody(req)
+        const result = await this.service.createChildChat(parentId, body as Parameters<ParlourService['createChildChat']>[1])
+        this.json(res, result)
+        return
+      }
+
+      if (method === 'PATCH' && path.match(/^\/chats\/[^/]+$/)) {
+        const id = this.extractParam(path, 2)
+        const body = await this.readBody(req)
+        this.service.updateChat(id, body)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'DELETE' && path.match(/^\/chats\/[^/]+$/)) {
+        const id = this.extractParam(path, 2)
+        await this.service.deleteChat(id)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path.match(/^\/chats\/[^/]+\/resume$/)) {
+        const chatId = this.extractParam(path, 2)
+        await this.service.resumeChat(chatId)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path.match(/^\/chats\/[^/]+\/retitle$/)) {
+        const chatId = this.extractParam(path, 2)
+        await this.service.retitleChat(chatId)
+        this.json(res, { ok: true })
+        return
+      }
+
+      // ── PTY routes ──
+
+      if (method === 'POST' && path === '/pty') {
+        const body = await this.readBody(req)
+        const ptyId = await this.service.createPty(
+          body.workingDir as string,
+          body.shell as string | undefined,
+          body.command as string[] | undefined,
+          body.extraEnv as Record<string, string> | undefined,
+        )
+        this.json(res, { ptyId })
+        return
+      }
+
+      if (method === 'GET' && path === '/pty') {
+        this.json(res, this.service.listPtys())
+        return
+      }
+
+      if (method === 'DELETE' && path.match(/^\/pty\/[^/]+$/)) {
+        const ptyId = this.extractParam(path, 2)
+        this.service.destroyPty(ptyId)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'GET' && path.match(/^\/pty\/[^/]+\/buffer$/)) {
+        const ptyId = this.extractParam(path, 2)
+        this.json(res, this.service.getPtyBuffer(ptyId))
+        return
+      }
+
+      // ── File routes ──
+
+      if (method === 'POST' && path === '/fs/read') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.readFile(body.filePath as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/fs/write') {
+        const body = await this.readBody(req)
+        await this.service.writeFile(body.filePath as string, body.content as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      // ── CLI routes ──
+
+      if (method === 'GET' && path === '/cli/detect') {
+        this.json(res, await this.service.detectClis())
+        return
+      }
+
+      if (method === 'GET' && path === '/cli/defaults') {
+        this.json(res, this.service.getCliBaseDefaults())
+        return
+      }
+
+      // ── GitHub routes ──
+
+      if (method === 'POST' && path === '/github/pr-statuses') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.getPrStatuses(body.repoPath as string, body.branches as string[]))
+        return
+      }
+
+      // ── Shell routes ──
+
+      if (method === 'POST' && path === '/shell/run') {
+        const body = await this.readBody(req)
+        this.json(res, await this.service.runCommand(body.command as string, body.cwd as string))
+        return
+      }
+
+      if (method === 'POST' && path === '/shell/open-external') {
+        const body = await this.readBody(req)
+        await this.service.openExternal(body.url as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      // ── Chat workspace routes ──
+
+      if (method === 'POST' && path === '/chat-workspace/create-dir') {
+        const body = await this.readBody(req)
+        const dirPath = await this.service.createChatDir(body.chatId as string, body.parentDirPath as string | undefined)
+        this.json(res, { dirPath })
+        return
+      }
+
+      if (method === 'POST' && path === '/chat-workspace/remove-dir') {
+        const body = await this.readBody(req)
+        await this.service.removeChatDir(body.chatId as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/chat-workspace/write-agents') {
+        const body = await this.readBody(req)
+        await this.service.writeAgentsMd(body.chatDir as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/chat-workspace/generate-title') {
+        const body = await this.readBody(req)
+        const title = await this.service.generateTitle(body.prompt as string, body.llmCommand as string | undefined)
+        this.json(res, { title })
+        return
+      }
+
+      if (method === 'POST' && path === '/chat-workspace/summarize') {
+        const body = await this.readBody(req)
+        const summary = await this.service.summarizeContext(body.ptyId as string)
+        this.json(res, { summary })
+        return
+      }
+
+      if (method === 'POST' && path === '/chat-workspace/notify-parent') {
+        const body = await this.readBody(req)
+        this.service.notifyParent(body.parentPtyId as string, body.message as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'POST' && path === '/chat-workspace/session-id') {
+        const body = await this.readBody(req)
+        const sessionId = await this.service.getSessionId(body.chatDir as string)
+        this.json(res, { sessionId })
+        return
+      }
+
+      // ── State routes ──
+
+      if (method === 'POST' && path === '/state/save') {
+        const body = await this.readBody(req)
+        await this.service.saveState(body.data)
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'GET' && path === '/state/load') {
+        this.json(res, await this.service.loadState())
+        return
+      }
+
+      // ── App routes ──
+
+      if (method === 'GET' && path === '/app/parlour-path') {
+        this.json(res, { path: this.service.getParlourPath() })
+        return
+      }
+
+      if (method === 'GET' && path === '/app/openers') {
+        this.json(res, await this.service.discoverOpeners())
+        return
+      }
+
+      if (method === 'POST' && path === '/app/open-in') {
+        const body = await this.readBody(req)
+        this.service.openIn(body.openerId as string, body.dirPath as string)
+        this.json(res, { ok: true })
+        return
+      }
+
+      // ── Theme routes ──
+
+      if (method === 'POST' && path === '/theme/mode') {
+        const body = await this.readBody(req)
+        this.service.setThemeMode(body.mode as 'system' | 'dark' | 'light')
+        this.json(res, { ok: true })
+        return
+      }
+
+      if (method === 'GET' && path === '/theme/resolved') {
+        this.json(res, { resolved: this.service.getThemeResolved() })
         return
       }
 
@@ -264,6 +603,7 @@ export class ApiServer {
 
   private handleMultiplexConnection(ws: WebSocket): void {
     const client: WsClient = { ws, ptyUnsubs: new Map(), stateUnsub: null, eventsUnsub: null }
+    this.wsClients.add(client)
     log.info('Multiplex WebSocket connected')
 
     this.send(ws, { type: 'hello', version: '1' })
@@ -281,6 +621,7 @@ export class ApiServer {
     ws.on('close', () => {
       log.info('Multiplex WebSocket disconnected')
       this.cleanupClient(client)
+      this.wsClients.delete(client)
     })
   }
 
@@ -303,6 +644,9 @@ export class ApiServer {
         break
       case 'events:subscribe':
         this.handleEventsSubscribe(client, msg.filters)
+        break
+      case 'theme:resolved':
+        this.service.setThemeMode(msg.resolved === 'dark' ? 'dark' : 'light')
         break
     }
   }
@@ -330,6 +674,11 @@ export class ApiServer {
       if (closed) return
       this.send(client.ws, { type: 'pty:exit', ptyId, exitCode })
       client.ptyUnsubs.delete(ptyId)
+    })
+
+    this.service.onPtyFirstInput(ptyId, (_id, input) => {
+      if (closed) return
+      this.send(client.ws, { type: 'pty:firstInput', ptyId, input })
     })
 
     client.ptyUnsubs.set(ptyId, cleanup)
@@ -395,6 +744,10 @@ export class ApiServer {
 
     this.wss = new WebSocketServer({ noServer: true })
 
+    this.themeUnsub = this.service.onThemeChange((resolved) => {
+      this.broadcast({ type: 'theme:resolved', resolved })
+    })
+
     this.httpServer = createServer(async (req, res) => {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
       if (url.pathname.startsWith('/api/')) {
@@ -434,6 +787,7 @@ export class ApiServer {
   }
 
   async stop(): Promise<void> {
+    this.themeUnsub?.()
     this.wss?.close()
     if (this.httpServer) {
       return new Promise((resolve) => {

@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc'
 import {
-  ApiServer, ParlourService, PtyManager, ChatRegistry, TaskScheduler,
+  ApiServer, ParlourService, PtyManager, ChatRegistry, TaskScheduler, ThemeManager,
   ensureGlobalSkills, logger, lifecycle,
 } from '@parlour/server'
 import { IPC } from '../shared/ipc-channels'
@@ -113,15 +113,21 @@ app.whenReady().then(async () => {
     }
   }
 
+  const themeManager = new ThemeManager()
   const persistedTheme = settingsGetter().theme ?? 'dark'
-  nativeTheme.themeSource = persistedTheme === 'system' ? 'system' : persistedTheme
+  const themeMode = persistedTheme as 'system' | 'dark' | 'light'
+  nativeTheme.themeSource = themeMode === 'system' ? 'system' : themeMode
+  themeManager.setMode(themeMode)
+  themeManager.setResolved(nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
 
   ipcMain.handle(IPC.THEME_SET_MODE, (_e, mode: string) => {
     nativeTheme.themeSource = mode === 'system' ? 'system' : (mode as 'light' | 'dark')
+    themeManager.setMode(mode as 'system' | 'dark' | 'light')
   })
 
   nativeTheme.on('updated', () => {
     const resolved = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    themeManager.setResolved(resolved)
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(IPC.THEME_RESOLVED_CHANGED, resolved)
     }
@@ -154,7 +160,7 @@ app.whenReady().then(async () => {
 
   registerIpcHandlers(ptyManager, taskScheduler, chatRegistry)
 
-  const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, settingsGetter)
+  const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, settingsGetter, themeManager, stateFile)
   apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
   apiServer.start().catch((err) => logger.error('API server failed to start', { error: String(err) }))
 
