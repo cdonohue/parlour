@@ -6,18 +6,36 @@ import { PARLOUR_DIR } from './parlour-dirs'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
 import { ParlourService } from './parlour-service'
+import type { ChatRegistry } from './chat-registry'
+import type { TaskScheduler } from './task-scheduler'
+import type { ClientMessage, ServerMessage } from '@parlour/api-types'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 
 const log = rootLogger.child({ service: 'ApiServer' })
 const PORT_FILE = join(PARLOUR_DIR, '.mcp-port')
 
+interface WsClient {
+  ws: WebSocket
+  ptyUnsubs: Map<string, () => void>
+  stateUnsub: (() => void) | null
+  eventsUnsub: (() => void) | null
+}
+
 export class ApiServer {
   private httpServer: HttpServer | null = null
   private wss: WebSocketServer | null = null
   private port = 0
 
-  constructor(private service: ParlourService) {}
+  constructor(
+    private service: ParlourService,
+    private chatRegistry: ChatRegistry,
+    private taskScheduler: TaskScheduler,
+  ) {}
+
+  private send(ws: WebSocket, msg: ServerMessage): void {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
+  }
 
   private async readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
     const chunks: Buffer[] = []
@@ -189,15 +207,28 @@ export class ApiServer {
     })
   }
 
-  private handlePtyUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+  // ── WebSocket upgrade routing ──
+
+  private handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
-    const match = url.pathname.match(/^\/api\/pty\/([^/]+)\/stream$/)
-    if (!match) {
-      socket.destroy()
+
+    if (url.pathname === '/ws') {
+      this.wss!.handleUpgrade(req, socket, head, (ws) => {
+        this.handleMultiplexConnection(ws)
+      })
       return
     }
 
-    const chatId = match[1]
+    const ptyMatch = url.pathname.match(/^\/api\/pty\/([^/]+)\/stream$/)
+    if (ptyMatch) {
+      this.handlePtyUpgrade(req, socket, head, ptyMatch[1])
+      return
+    }
+
+    socket.destroy()
+  }
+
+  private handlePtyUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, chatId: string): void {
     const ptyId = this.service.getPtyIdForChat(chatId)
     if (!ptyId) {
       socket.destroy()
@@ -229,6 +260,136 @@ export class ApiServer {
     })
   }
 
+  // ── Multiplexed WebSocket ──
+
+  private handleMultiplexConnection(ws: WebSocket): void {
+    const client: WsClient = { ws, ptyUnsubs: new Map(), stateUnsub: null, eventsUnsub: null }
+    log.info('Multiplex WebSocket connected')
+
+    this.send(ws, { type: 'hello', version: '1' })
+
+    ws.on('message', (raw) => {
+      let msg: ClientMessage
+      try {
+        msg = JSON.parse(raw.toString())
+      } catch {
+        return
+      }
+      this.handleClientMessage(client, msg)
+    })
+
+    ws.on('close', () => {
+      log.info('Multiplex WebSocket disconnected')
+      this.cleanupClient(client)
+    })
+  }
+
+  private handleClientMessage(client: WsClient, msg: ClientMessage): void {
+    switch (msg.type) {
+      case 'pty:subscribe':
+        this.handlePtySubscribe(client, msg.ptyId)
+        break
+      case 'pty:unsubscribe':
+        this.handlePtyUnsubscribe(client, msg.ptyId)
+        break
+      case 'pty:write':
+        this.service.writePty(msg.ptyId, msg.data)
+        break
+      case 'pty:resize':
+        this.service.resizePty(msg.ptyId, msg.cols, msg.rows)
+        break
+      case 'state:subscribe':
+        this.handleStateSubscribe(client)
+        break
+      case 'events:subscribe':
+        this.handleEventsSubscribe(client, msg.filters)
+        break
+    }
+  }
+
+  private handlePtySubscribe(client: WsClient, ptyId: string): void {
+    if (client.ptyUnsubs.has(ptyId)) return
+
+    let closed = false
+    const cleanup = () => { closed = true }
+
+    const buffer = this.service.getPtyBuffer(ptyId)
+    if (buffer) this.send(client.ws, { type: 'pty:buffer', ptyId, data: buffer })
+
+    this.service.onPtyOutput(ptyId, (_id, data) => {
+      if (closed) return
+      this.send(client.ws, { type: 'pty:data', ptyId, data })
+    })
+
+    this.service.onPtyTitle(ptyId, (_id, title) => {
+      if (closed) return
+      this.send(client.ws, { type: 'pty:title', ptyId, title })
+    })
+
+    this.service.onPtyExit(ptyId, (exitCode) => {
+      if (closed) return
+      this.send(client.ws, { type: 'pty:exit', ptyId, exitCode })
+      client.ptyUnsubs.delete(ptyId)
+    })
+
+    client.ptyUnsubs.set(ptyId, cleanup)
+  }
+
+  private handlePtyUnsubscribe(client: WsClient, ptyId: string): void {
+    const unsub = client.ptyUnsubs.get(ptyId)
+    if (unsub) {
+      unsub()
+      client.ptyUnsubs.delete(ptyId)
+    }
+  }
+
+  private handleStateSubscribe(client: WsClient): void {
+    if (client.stateUnsub) return
+
+    this.send(client.ws, { type: 'state:chats', chats: this.chatRegistry.getState().chats })
+    this.send(client.ws, { type: 'state:schedules', schedules: this.taskScheduler.list() })
+
+    const chatUnsub = this.chatRegistry.addStateListener((state) => {
+      this.send(client.ws, { type: 'state:chats', chats: state.chats })
+    })
+    const scheduleUnsub = this.taskScheduler.addScheduleListener((schedules) => {
+      this.send(client.ws, { type: 'state:schedules', schedules })
+    })
+
+    client.stateUnsub = () => { chatUnsub(); scheduleUnsub() }
+  }
+
+  private handleEventsSubscribe(client: WsClient, filters?: string[]): void {
+    if (client.eventsUnsub) return
+
+    const filterList = filters && filters.length > 0 ? filters : ['*']
+
+    const matches = (eventType: string): boolean => {
+      for (const f of filterList) {
+        if (f === '*') return true
+        if (f.endsWith(':*') && eventType.startsWith(f.slice(0, -1))) return true
+        if (f === eventType) return true
+      }
+      return false
+    }
+
+    client.eventsUnsub = lifecycle.on('*', (event) => {
+      if (!matches(event.type)) return
+      this.send(client.ws, { type: 'event', event })
+    })
+  }
+
+  private cleanupClient(client: WsClient): void {
+    for (const unsub of client.ptyUnsubs.values()) unsub()
+    client.ptyUnsubs.clear()
+    client.stateUnsub?.()
+    client.stateUnsub = null
+    client.eventsUnsub?.()
+    client.eventsUnsub = null
+  }
+
+  // ── Server lifecycle ──
+
   async start(): Promise<number> {
     await mkdir(PARLOUR_DIR, { recursive: true })
 
@@ -248,7 +409,7 @@ export class ApiServer {
     })
 
     this.httpServer.on('upgrade', (req, socket, head) => {
-      this.handlePtyUpgrade(req, socket, head)
+      this.handleUpgrade(req, socket, head)
     })
 
     return new Promise((resolve, reject) => {

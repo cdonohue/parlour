@@ -53,6 +53,7 @@ export class ChatRegistry {
   private settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] }
   private getTheme: () => 'dark' | 'light'
   private onStateChanged: (state: { chats: ChatRecord[] }) => void
+  private stateListeners: Array<(state: { chats: ChatRecord[] }) => void> = []
   private persistTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -716,7 +717,17 @@ export class ChatRegistry {
     }
   }
 
+  addStateListener(cb: (state: { chats: ChatRecord[] }) => void): () => void {
+    this.stateListeners.push(cb)
+    return () => {
+      const idx = this.stateListeners.indexOf(cb)
+      if (idx >= 0) this.stateListeners.splice(idx, 1)
+    }
+  }
+
   private pushToRenderer(): void {
-    this.onStateChanged({ chats: this.chats })
+    const state = { chats: this.chats }
+    this.onStateChanged(state)
+    for (const cb of this.stateListeners) cb(state)
   }
 }

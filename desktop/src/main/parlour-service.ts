@@ -132,6 +132,18 @@ export class ParlourService {
     this.ptyManager.resize(ptyId, cols, rows)
   }
 
+  getPtyBuffer(ptyId: string): string {
+    return this.ptyManager.getBuffer(ptyId)
+  }
+
+  onPtyTitle(ptyId: string, callback: (ptyId: string, title: string) => void): void {
+    this.ptyManager.onTitle(ptyId, callback)
+  }
+
+  onPtyExit(ptyId: string, callback: (exitCode: number) => void): void {
+    this.ptyManager.onExit(ptyId, callback)
+  }
+
   handleHook(chatId: string, event: string, data?: Record<string, unknown>): void {
     lifecycle.emit({ type: 'cli:hook', chatId, event, data })
 

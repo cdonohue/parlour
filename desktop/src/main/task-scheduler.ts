@@ -31,6 +31,7 @@ export class TaskScheduler {
   private chatRegistry: ChatRegistry
   private settingsGetter: () => { llmCommand: string }
   private onSchedulesChanged: (schedules: Schedule[]) => void
+  private scheduleListeners: Array<(schedules: Schedule[]) => void> = []
 
   constructor(chatRegistry: ChatRegistry, settingsGetter: () => { llmCommand: string }, onSchedulesChanged: (schedules: Schedule[]) => void) {
     this.chatRegistry = chatRegistry
@@ -189,8 +190,18 @@ export class TaskScheduler {
     lifecycle.emit({ type: 'schedule:triggered', scheduleId: schedule.id, chatId: result.chat.id })
   }
 
+  addScheduleListener(cb: (schedules: Schedule[]) => void): () => void {
+    this.scheduleListeners.push(cb)
+    return () => {
+      const idx = this.scheduleListeners.indexOf(cb)
+      if (idx >= 0) this.scheduleListeners.splice(idx, 1)
+    }
+  }
+
   private pushToRenderer(): void {
-    this.onSchedulesChanged(this.list())
+    const schedules = this.list()
+    this.onSchedulesChanged(schedules)
+    for (const cb of this.scheduleListeners) cb(schedules)
   }
 
   private async save(): Promise<void> {

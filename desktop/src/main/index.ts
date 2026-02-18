@@ -159,7 +159,7 @@ app.whenReady().then(async () => {
   registerIpcHandlers(ptyManager, taskScheduler, chatRegistry)
 
   const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, settingsGetter)
-  apiServer = new ApiServer(parlourService)
+  apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
   apiServer.start().catch((err) => logger.error('API server failed to start', { error: String(err) }))
 
   ipcMain.handle(IPC.API_GET_PORT, () => apiServer?.getPort() ?? 0)
