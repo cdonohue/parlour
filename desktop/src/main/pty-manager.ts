@@ -8,6 +8,7 @@ interface PtyInstance {
   webContents: WebContents
   onExitCallbacks: Array<(exitCode: number) => void>
   onActivityCallbacks: Array<(ptyId: string) => void>
+  onOutputCallbacks: Array<(ptyId: string, data: string) => void>
   inputBuffer: string
   detectedTitle: string | null
   outputBuffer: string
@@ -48,7 +49,7 @@ export class PtyManager {
       } as Record<string, string>,
     })
 
-    const instance: PtyInstance = { process: proc, webContents, onExitCallbacks: [], onActivityCallbacks: [], inputBuffer: '', detectedTitle: null, outputBuffer: '', firstInputEmitted: false, firstInputLines: [], lastOutputAt: Date.now() }
+    const instance: PtyInstance = { process: proc, webContents, onExitCallbacks: [], onActivityCallbacks: [], onOutputCallbacks: [], inputBuffer: '', detectedTitle: null, outputBuffer: '', firstInputEmitted: false, firstInputLines: [], lastOutputAt: Date.now() }
 
     let pendingWrite = initialWrite
     proc.onData((data) => {
@@ -58,6 +59,7 @@ export class PtyManager {
         instance.outputBuffer = instance.outputBuffer.slice(-100_000)
       }
       for (const cb of instance.onActivityCallbacks) cb(id)
+      for (const cb of instance.onOutputCallbacks) cb(id, data)
       if (!instance.webContents.isDestroyed()) {
         instance.webContents.send(`${IPC.PTY_DATA}:${id}`, data)
       }
@@ -86,6 +88,11 @@ export class PtyManager {
   onActivity(ptyId: string, callback: (ptyId: string) => void): void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onActivityCallbacks.push(callback)
+  }
+
+  onOutput(ptyId: string, callback: (ptyId: string, data: string) => void): void {
+    const instance = this.ptys.get(ptyId)
+    if (instance) instance.onOutputCallbacks.push(callback)
   }
 
   getLastOutputAt(ptyId: string): number | null {
@@ -222,7 +229,7 @@ export class PtyManager {
           reject(new Error(`PTY ${ptyId} not ready after ${maxAttempts * 500 / 1000}s (${this.ptys.size} concurrent)`))
           return
         }
-        if (instance.detectedTitle) {
+        if (instance.detectedTitle || instance.outputBuffer.length > 0) {
           this.write(ptyId, text)
           if (submit) setTimeout(() => this.write(ptyId, '\r'), 100)
           resolve()

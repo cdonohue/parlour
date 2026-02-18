@@ -1,0 +1,81 @@
+@import '@parlour/ui/styles/design-tokens.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+:focus-visible {
+  outline: 1px solid var(--accent-blue);
+  outline-offset: -1px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: rgba(110, 106, 222, 0.25);
+  color: inherit;
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+}
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sash-container .sash {
+  background: transparent !important;
+  transition: background var(--transition-default) !important;
+  --sash-size: 8px !important;
+  transform: translateX(0px) !important;
+}
+
+.sash-container .sash:hover,
+.sash-container .sash.active {
+  background: var(--accent-blue) !important;
+  transition-delay: 100ms !important;
+}

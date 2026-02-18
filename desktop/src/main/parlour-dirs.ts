@@ -90,34 +90,33 @@ const PARLOUR_AGENTS_MD = `# Parlour
 
 You are running inside Parlour, a desktop app for orchestrating parallel AI agents.
 
-## MCP Tools
+## parlour CLI
 
-You have access to Parlour MCP tools.
+Use the \`parlour\` command to interact with Parlour. Run \`parlour --help\` for full usage.
 
 ### Projects
 
-- **open_dir** — Open a project by local path or git URL. Creates a local clone under \`./projects/\`. Pass \`branch\` to check out a specific branch, or \`branch\` + \`base\` to create a new branch from a base. Returns the project path.
-- **list_projects** — List projects available to this chat with their branches.
-- **save_project_setup** — Save files from the current clone for automatic setup in future clones of this project.
+- \`parlour project open <path-or-url>\` — Open a project by local path or git URL. Creates a local clone under \`./projects/\`. Add \`--branch <name>\` and/or \`--base <name>\`.
+- \`parlour project list\` — List projects available to this chat with their branches.
 
 ### Dispatch & Orchestration
 
-- **dispatch** — Spawn a sub-agent chat with a prompt. Pass \`project\` for project-scoped work. Pass \`llm\` to override which model runs.
-- **get_status** — Check status of a dispatched session.
-- **list_children** — List child chats of a given chat.
-- **report_to_parent** — Send a message to the parent chat.
-- **get_parent_output** — Read the parent chat's terminal output (child chats only).
+- \`parlour dispatch "<prompt>"\` — Spawn a sub-agent chat. Add \`--project <path>\` for project-scoped work.
+- \`parlour status [chatId]\` — Check status of a chat (defaults to current).
+- \`parlour list-children\` — List child chats.
+- \`parlour report "<message>"\` — Send a message to the parent chat.
 
 ### Scheduling
 
-- **schedule_chat** — Schedule a recurring or one-time chat. Use \`cron\` for recurring or \`at\` for one-time.
-- **list_schedules** — List all scheduled tasks.
-- **cancel_schedule** — Delete a scheduled task.
-- **run_schedule** — Trigger an immediate run.
+- \`parlour schedule "<prompt>" --cron "0 * * * *"\` — Schedule a recurring task.
+- \`parlour schedule "<prompt>" --at "2025-01-01T00:00:00"\` — Schedule a one-time task.
+- \`parlour schedule list\` — List all scheduled tasks.
+- \`parlour schedule cancel <id>\` — Cancel a scheduled task.
+- \`parlour schedule run <id>\` — Trigger an immediate run.
 
 ## Important Patterns
 
-**Always call open_dir first when asked to work with a project, check out a branch, or open a repo.** Never \`git clone\` or \`git checkout\` manually — open_dir handles cloning, branching, and project tracking. cd into the returned path to work.
+**Always use \`parlour project open\` when asked to work with a project, check out a branch, or open a repo.** Never \`git clone\` or \`git checkout\` manually — it handles cloning, branching, and project tracking. cd into the returned path to work.
 
 **Read each project's CLAUDE.md or AGENTS.md** for project-specific instructions.
 
@@ -202,7 +201,7 @@ export async function writeAgentsMd(
     const available = await scanProjectRoots(projectRoots)
     if (available.length > 0) {
       content += '\n## Available Repos\n\n'
-      content += 'These local repos can be opened with `open_dir`:\n\n'
+      content += 'These local repos can be opened with `parlour project open`:\n\n'
       for (const repo of available) {
         content += `- \`${repo}\`\n`
       }

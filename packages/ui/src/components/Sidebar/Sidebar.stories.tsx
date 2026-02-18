@@ -10,8 +10,9 @@ export default meta
 
 const chats: Chat[] = [
   { id: 'c1', name: 'Implement auth flow', status: 'active', ptyId: 'pty1', dirPath: '/tmp/c1', createdAt: Date.now() - 3600000, lastActiveAt: Date.now() - 600000, pinnedAt: null, llmCommand: 'claude' },
-  { id: 'c2', name: 'Fix sidebar layout', status: 'done', ptyId: null, dirPath: '/tmp/c2', createdAt: Date.now() - 86400000, lastActiveAt: Date.now() - 86400000, pinnedAt: null, llmCommand: 'codex' },
+  { id: 'c2', name: 'Refactor database connection pooling and retry logic', status: 'done', ptyId: null, dirPath: '/tmp/c2', createdAt: Date.now() - 86400000, lastActiveAt: Date.now() - 86400000, pinnedAt: null, llmCommand: 'codex' },
   { id: 'c3', name: 'Subtask: write tests', status: 'done', ptyId: null, dirPath: '/tmp/c3', createdAt: Date.now() - 1800000, lastActiveAt: Date.now() - 1800000, pinnedAt: null, parentId: 'c1' },
+  { id: 'c4', name: 'Subtask: update docs', status: 'active', ptyId: 'pty4', dirPath: '/tmp/c4', createdAt: Date.now() - 900000, lastActiveAt: Date.now() - 300000, pinnedAt: null, parentId: 'c1' },
 ]
 
 const noop = () => {}

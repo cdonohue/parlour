@@ -1,0 +1,12 @@
+{
+  "name": "@parlour/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "parlour": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node",
+    "dev": "bun run src/index.ts"
+  }
+}

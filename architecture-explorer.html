@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parlour — Multi-Target Architecture Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #252833;
+    --border: #2e3140; --text: #e4e4e7; --text-dim: #8b8d98;
+    --green: #34d399; --green-bg: rgba(52,211,153,.12); --green-border: rgba(52,211,153,.3);
+    --blue: #60a5fa; --blue-bg: rgba(96,165,250,.12); --blue-border: rgba(96,165,250,.3);
+    --orange: #fb923c; --orange-bg: rgba(251,146,60,.12); --orange-border: rgba(251,146,60,.3);
+    --purple: #a78bfa; --purple-bg: rgba(167,139,250,.12); --purple-border: rgba(167,139,250,.3);
+    --red: #f87171; --red-bg: rgba(248,113,113,.12); --red-border: rgba(248,113,113,.3);
+    --yellow: #fbbf24; --yellow-bg: rgba(251,191,36,.12); --yellow-border: rgba(251,191,36,.3);
+    --radius: 8px; --font: system-ui, -apple-system, sans-serif; --mono: 'SF Mono', 'Fira Code', monospace;
+  }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  .header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .header h1 { font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+  .header h1 span { color: var(--text-dim); font-weight: 400; }
+  .view-toggle { display: flex; background: var(--surface); border-radius: 6px; overflow: hidden; border: 1px solid var(--border); margin-left: auto; }
+  .view-toggle button { padding: 6px 16px; font-size: 12px; font-weight: 500; background: none; border: none; color: var(--text-dim); cursor: pointer; transition: all .15s; font-family: var(--font); }
+  .view-toggle button.active { background: var(--blue-bg); color: var(--blue); }
+  .view-toggle button:hover:not(.active) { color: var(--text); }
+  .legend { display: flex; gap: 14px; margin-left: 16px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-dim); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+  .canvas { flex: 1; position: relative; overflow: hidden; padding: 24px; display: flex; flex-direction: column; align-items: center; }
+  .canvas svg { flex: 1; width: 100%; }
+
+  .detail { width: 360px; border-left: 1px solid var(--border); background: var(--surface); overflow-y: auto; flex-shrink: 0; }
+  .detail-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .detail-header h2 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .detail-header .tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+  .tag-green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .tag-blue { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+  .tag-orange { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  .tag-purple { background: var(--purple-bg); color: var(--purple); border: 1px solid var(--purple-border); }
+  .tag-yellow { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
+  .tag-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .detail-body { padding: 16px 20px; }
+  .detail-body p { font-size: 12px; color: var(--text-dim); line-height: 1.6; margin-bottom: 12px; }
+  .detail-section { margin-bottom: 16px; }
+  .detail-section h3 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); margin-bottom: 8px; }
+  .file-list { list-style: none; }
+  .file-list li { font-size: 12px; font-family: var(--mono); padding: 4px 8px; margin-bottom: 2px; border-radius: 4px; background: var(--surface2); color: var(--text-dim); }
+  .method-list { list-style: none; }
+  .method-list li { font-size: 12px; padding: 3px 0; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+  .method-list li::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; }
+  .detail-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-dim); font-size: 12px; }
+  .flow-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .flow-item { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px; }
+  .flow-arrow { font-size: 14px; color: var(--blue); flex-shrink: 0; margin-top: 1px; }
+  .flow-text { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .flow-text strong { color: var(--text); font-weight: 500; }
+  .event-badge { display: inline-block; font-size: 10px; font-family: var(--mono); padding: 1px 6px; border-radius: 3px; margin-right: 4px; }
+
+  .prompt-bar { border-top: 1px solid var(--border); padding: 12px 20px; background: var(--surface); flex-shrink: 0; display: flex; align-items: center; gap: 12px; }
+  .prompt-text { flex: 1; font-size: 12px; font-family: var(--mono); color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .copy-btn { padding: 6px 14px; font-size: 11px; font-weight: 600; background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); border-radius: 6px; cursor: pointer; font-family: var(--font); transition: all .15s; white-space: nowrap; }
+  .copy-btn:hover { background: rgba(96,165,250,.2); }
+  .copy-btn.copied { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
+
+  .layer-group { cursor: pointer; transition: opacity .15s; }
+  .layer-group:hover .layer-rect { filter: brightness(1.15); }
+  .layer-group.selected .layer-rect { stroke-width: 2; }
+  .layer-rect { rx: 8; ry: 8; transition: filter .15s; }
+  .layer-label { font-family: system-ui, sans-serif; font-weight: 600; fill: currentColor; pointer-events: none; }
+  .layer-sublabel { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; fill: currentColor; opacity: .6; pointer-events: none; }
+  .flow-line { fill: none; stroke-width: 1.5; opacity: .6; }
+  .flow-line.pty { stroke: var(--blue); stroke-dasharray: 6 3; }
+  .flow-line.registry { stroke: var(--green); stroke-dasharray: 4 4; }
+  .flow-line.state { stroke: var(--orange); stroke-dasharray: 8 4; }
+  .flow-line.harness { stroke: var(--purple); stroke-dasharray: 5 3; }
+  .flow-line.lifecycle { stroke: var(--yellow); stroke-dasharray: 3 3; }
+  .flow-label-bg { fill: var(--bg); }
+  .flow-label-text { font-family: 'SF Mono', monospace; font-size: 9px; fill: var(--text-dim); }
+  .section-label { font-family: system-ui, sans-serif; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; fill: var(--text-dim); opacity: .5; }
+  .bracket-line { stroke: var(--text-dim); stroke-width: 1; opacity: .15; }
+  .crosscut-rect { rx: 6; ry: 6; }
+  .crosscut-label { font-family: system-ui, sans-serif; font-weight: 600; pointer-events: none; }
+  .crosscut-sublabel { font-family: 'SF Mono', monospace; font-size: 9px; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Parlour <span>Architecture Explorer</span></h1>
+  <div class="legend" id="legend"></div>
+  <div class="view-toggle">
+    <button class="active" onclick="setView('current')">Current</button>
+    <button onclick="setView('foundation')">Foundation</button>
+    <button onclick="setView('target')">Target</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="canvas" id="canvas"></div>
+  <div class="detail" id="detail">
+    <div class="detail-empty">Click a layer to inspect</div>
+  </div>
+</div>
+
+<div class="prompt-bar">
+  <div class="prompt-text" id="prompt"></div>
+  <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">Copy Prompt</button>
+</div>
+
+<script>
+const state = { view: 'current', selected: null };
+
+// ── View 1: Current ──
+
+const CURRENT_LAYERS = [
+  { id: 'ui', label: '@parlour/ui', sub: 'packages/ui/', y: 0, color: 'green',
+    desc: 'Presentational React components. Zero platform deps. Exports Sidebar, Terminal, Settings, primitives.',
+    files: ['packages/ui/src/components/', 'packages/ui/src/primitives/', 'packages/ui/src/types.ts'],
+    details: ['19 components, 12 primitives', 'xterm.js Terminal takes callbacks as props', 'Storybook for dev'],
+    migration: { action: 'No change', note: 'Already platform-agnostic.' } },
+  { id: 'connected', label: 'Connected Wrappers', sub: 'desktop/src/renderer/connected/', y: 1, color: 'orange',
+    desc: 'Thin bridge between UI and store. Each wrapper reads Zustand slices and passes window.api callbacks to UI.',
+    files: ['connected/Sidebar.tsx', 'connected/TerminalPanel.tsx', 'connected/SettingsPanel.tsx', 'connected/TasksPanel.tsx'],
+    details: ['5 wrappers, ~50-70 lines each', 'Direct window.api.* calls throughout', 'Coupled to Electron preload'],
+    migration: { action: 'Move to packages/app', note: 'Replace window.api.* with usePlatform().*' } },
+  { id: 'store', label: 'Zustand Store', sub: 'desktop/src/renderer/store/', y: 2, color: 'orange',
+    desc: 'UI state: navigation, settings, unread badges. 15 direct window.api calls.',
+    files: ['store/app-store.ts', 'store/types.ts'],
+    details: ['15 window.api.* calls', 'debouncedSave via window.api', 'hydrateFromDisk() fetches from ChatRegistry'],
+    migration: { action: 'Move to packages/app', note: 'Store factory accepts PlatformAdapter. Replace 15 window.api.* calls.' } },
+  { id: 'preload', label: 'Electron Preload', sub: 'desktop/src/preload/', y: 3, color: 'orange',
+    desc: 'contextBridge exposing 50 methods across 13 namespaces. The implicit platform contract.',
+    files: ['desktop/src/preload/index.ts'],
+    details: ['~50 methods, 13 namespaces', 'ipcRenderer.invoke() for request-reply', 'ipcRenderer.on() for event streams'],
+    migration: { action: 'Add satisfies PlatformAdapter', note: 'Formalizes the contract. Code unchanged.' } },
+  { id: 'main', label: 'Main Process', sub: 'desktop/src/main/', y: 4, color: 'orange',
+    desc: 'Node.js services: ChatRegistry, PtyManager, GitService, TaskScheduler, MCP server. All business logic.',
+    files: ['chat-registry.ts', 'pty-manager.ts', 'git-service.ts', 'mcp-server.ts', 'task-scheduler.ts'],
+    details: ['ChatRegistry: 800+ lines, in-memory mirror + JSON persistence', '12 scattered console.error calls, no structured logging', 'No terminal lifecycle hooks', 'No LLM harness visibility'],
+    problems: ['Global chat-registry.json duplicates filesystem', 'Branch watchers + PR polling add ~200 lines of complexity', 'No way for external consumers to observe PTY events', 'No agent activity visibility inside terminals'] },
+];
+
+const CURRENT_FLOWS = [
+  { from: 'main', to: 'preload', label: 'PTY data', type: 'pty' },
+  { from: 'preload', to: 'connected', label: 'PTY stream', type: 'pty' },
+  { from: 'main', to: 'preload', label: 'Registry push', type: 'registry' },
+  { from: 'preload', to: 'store', label: 'State push', type: 'registry' },
+  { from: 'store', to: 'preload', label: 'Persist', type: 'state' },
+];
+
+const CURRENT_LEGEND = [
+  { color: 'var(--green)', label: 'Platform-agnostic' },
+  { color: 'var(--orange)', label: 'Electron-coupled' },
+];
+
+// ── View 2: Foundation (Phase A) ──
+
+const FOUNDATION_LAYERS = [
+  { id: 'ui', label: '@parlour/ui', sub: 'packages/ui/', y: 0, color: 'green',
+    desc: 'Unchanged. Presentational React components with zero platform deps.',
+    files: ['packages/ui/src/components/', 'packages/ui/src/primitives/', 'packages/ui/src/types.ts'],
+    details: ['No changes needed', 'Already platform-agnostic'] },
+  { id: 'connected', label: 'Connected Wrappers', sub: 'desktop/src/renderer/connected/', y: 1, color: 'orange',
+    desc: 'Unchanged in Phase A. Still calls window.api directly. Extraction happens in Phase B.',
+    files: ['connected/Sidebar.tsx', 'connected/TerminalPanel.tsx'],
+    details: ['Still uses window.api.*', 'Receives harness status via IPC push'] },
+  { id: 'store', label: 'Zustand Store', sub: 'desktop/src/renderer/store/', y: 2, color: 'orange',
+    desc: 'Unchanged in Phase A. Receives harness status updates from lifecycle events via IPC.',
+    files: ['store/app-store.ts'],
+    details: ['Receives harness:status events for UI badges', 'Status bar can show agent state'] },
+  { id: 'preload', label: 'Electron Preload', sub: 'desktop/src/preload/', y: 3, color: 'orange',
+    desc: 'Unchanged. Still bridges IPC. Lifecycle events broadcast via IPC for renderer consumption.',
+    files: ['desktop/src/preload/index.ts'],
+    details: ['Lifecycle events bridged to renderer', 'Harness status available per chat'] },
+  { id: 'main', label: 'Main Process', sub: 'desktop/src/main/', y: 4, color: 'orange',
+    desc: 'Simplified. ChatRegistry uses filesystem as truth. Logger replaces console.error. Lifecycle emitter wired throughout.',
+    files: ['chat-registry.ts (simplified)', 'pty-manager.ts', 'logger.ts', 'lifecycle.ts', 'harness-parser.ts', 'harness-tracker.ts'],
+    details: ['ChatRegistry: ~230 lines removed', 'Per-chat metadata.json replaces global JSON', 'Status derived from PTY + HarnessTracker', 'Removed: branch watchers, PR poller, savedBuffers'],
+    changes: ['Global chat-registry.json eliminated', 'Branch watchers + PR polling removed', 'Idle timer mechanism preserved for UI'] },
+];
+
+const FOUNDATION_CROSSCUTS = [
+  { id: 'logger', label: 'Logger', sub: 'logger.ts', color: 'yellow', side: 'right', row: 0,
+    desc: 'Structured JSON line logger. Writes to ~/.parlour/logs/parlour.jsonl with rotation. Child loggers per service. Console output in dev.',
+    files: ['desktop/src/main/logger.ts'],
+    details: ['JSON lines to ~/.parlour/logs/parlour.jsonl', '5MB rotation', 'Levels: error, warn, info, debug', 'Child loggers: logger.child({ service: "ChatRegistry" })', 'Replaces 12 scattered console.error calls'],
+    events: ['Subscribes to lifecycle * for audit trail'] },
+  { id: 'lifecycle', label: 'Lifecycle', sub: 'lifecycle.ts', color: 'blue', side: 'right', row: 1,
+    desc: 'Typed event emitter for terminal + harness + CLI events. Wildcard subscriptions. Single event bus for all observability.',
+    files: ['desktop/src/main/lifecycle.ts'],
+    details: ['3 event streams: Terminal, Harness, CLI', 'Wildcard: on("*") and on("harness:*")', 'Consumers: Logger, Renderer (IPC), HarnessTracker'],
+    events: ['chat:created, chat:resumed, chat:deleted', 'pty:spawned, pty:exit', 'harness:tool:start, harness:tool:end, harness:status', 'cli:dispatch, cli:status, cli:hook'] },
+  { id: 'cli', label: 'parlour CLI', sub: 'parlour-cli/', color: 'green', side: 'left', row: 0,
+    desc: 'Agent-facing CLI replacing MCP tool descriptions. Thin HTTP client hitting the same backend. Self-documenting via --help.',
+    files: ['parlour-cli/src/index.ts', 'parlour-cli/package.json'],
+    details: ['parlour dispatch "task"', 'parlour status [chatId]', 'parlour hook pre-tool-use --tool $TOOL', 'parlour report "message"', 'parlour schedule "task" --cron "..."', 'Reads PARLOUR_CHAT_ID from env', 'Reads port from ~/.parlour/.mcp-port'],
+    events: ['Each invocation emits a CliEvent', 'cli:dispatch, cli:status, cli:hook, cli:report'] },
+  { id: 'harness', label: 'Harness', sub: 'harness-*.ts', color: 'purple', side: 'left', row: 1,
+    desc: 'Two mechanisms: CLI hooks (structured events from Claude) + output parser (regex on PTY stream). Feeds into HarnessTracker per chat.',
+    files: ['desktop/src/main/harness-parser.ts', 'desktop/src/main/harness-tracker.ts', 'desktop/src/main/cli-config.ts'],
+    details: ['Claude hooks: PreToolUse, PostToolUse, Stop', 'Hooks call: parlour hook pre-tool-use --tool $TOOL', 'Output parser: ClaudeOutputParser + GenericOutputParser', 'HarnessTracker: idle/thinking/writing/tool-use/waiting/done/error', 'One tracker per active chat'],
+    events: ['harness:tool:start, harness:tool:end', 'harness:thinking, harness:writing', 'harness:waiting, harness:stop', 'harness:status (unified state change)'] },
+];
+
+const FOUNDATION_FLOWS = [
+  { from: 'main', to: 'preload', label: 'PTY data', type: 'pty' },
+  { from: 'preload', to: 'connected', label: 'PTY stream', type: 'pty' },
+  { from: 'main', to: 'preload', label: 'State push', type: 'registry' },
+];
+
+const FOUNDATION_LEGEND = [
+  { color: 'var(--green)', label: 'Platform-agnostic' },
+  { color: 'var(--orange)', label: 'Electron-coupled' },
+  { color: 'var(--blue)', label: 'Terminal events' },
+  { color: 'var(--purple)', label: 'Harness events' },
+  { color: 'var(--yellow)', label: 'CLI events' },
+];
+
+// ── View 3: Target (Phase B+) ──
+
+const TARGET_LAYERS = [
+  { id: 'ui', label: '@parlour/ui', sub: 'packages/ui/', y: 0, color: 'green',
+    desc: 'Unchanged. Presentational React components with zero platform deps.',
+    files: ['packages/ui/src/components/', 'packages/ui/src/primitives/', 'packages/ui/src/types.ts'],
+    details: ['No changes needed', 'Already platform-agnostic', 'xterm.js works in any browser'] },
+  { id: 'app', label: '@parlour/app', sub: 'packages/app/', y: 1, color: 'green',
+    desc: 'Extracted from desktop/src/renderer. Store + connected wrappers + hooks. Uses usePlatform() instead of window.api.',
+    files: ['packages/app/src/store/app-store.ts', 'packages/app/src/connected/*.tsx', 'packages/app/src/hooks/*.ts', 'packages/app/src/App.tsx'],
+    details: ['Store factory accepts PlatformAdapter', 'Connected wrappers use usePlatform()', 'Testable with mock adapter, no Electron'] },
+  { id: 'adapter', label: 'PlatformAdapter', sub: 'packages/platform/', y: 2, color: 'blue',
+    desc: 'TypeScript interface formalizing the window.api contract. 13 namespaced sub-interfaces. React context + hook for DI.',
+    files: ['packages/platform/src/adapter.ts', 'packages/platform/src/context.ts', 'packages/platform/src/testing/mock-adapter.ts'],
+    details: ['~130 lines of interface definitions', 'PlatformProvider + usePlatform() hook', 'Mock adapter for testing', 'Namespaced: git, pty, fs, chat, ...'] },
+  { id: 'electron', label: 'Electron Shell', sub: 'desktop/', y: 3.5, color: 'orange', x: -1,
+    desc: 'Thin entry point (~30 lines). Creates adapter from window.api, inits store, renders App.',
+    files: ['desktop/src/renderer/index.tsx', 'desktop/src/renderer/electron-adapter.ts', 'desktop/src/preload/index.ts'],
+    details: ['Adapter = window.api (trivial)', 'Preload satisfies PlatformAdapter', 'Main process services unchanged', 'parlour CLI connects to localhost'] },
+  { id: 'tauri', label: 'Tauri Shell', sub: 'tauri/ (future)', y: 3.5, color: 'orange', x: 0,
+    desc: 'Implements PlatformAdapter via @tauri-apps/api invoke(). Rust backend with portable-pty.',
+    files: ['tauri/src/adapter.ts', 'tauri/src-tauri/'],
+    details: ['invoke() maps 1:1 to adapter', 'Rust PTY via portable-pty', 'Tauri events for PTY streaming', 'parlour CLI connects to localhost'] },
+  { id: 'web', label: 'Web / Cloud', sub: 'web/ (future)', y: 3.5, color: 'orange', x: 1,
+    desc: 'HTTP API + WebSocket for PTY streaming. Backend runs services, browser gets React app.',
+    files: ['web/src/adapter.ts', 'web/src/ws-pty.ts', 'server/'],
+    details: ['HTTP for request-reply methods', 'WebSocket multiplexes PTY streams', 'parlour CLI uses PARLOUR_API_URL'] },
+];
+
+const TARGET_FLOWS = [
+  { from: 'electron', to: 'adapter', label: 'implements', type: 'state' },
+  { from: 'tauri', to: 'adapter', label: 'implements', type: 'state' },
+  { from: 'web', to: 'adapter', label: 'implements', type: 'state' },
+  { from: 'adapter', to: 'app', label: 'usePlatform()', type: 'pty' },
+  { from: 'app', to: 'ui', label: 'props', type: 'registry' },
+];
+
+const TARGET_LEGEND = [
+  { color: 'var(--green)', label: 'Platform-agnostic' },
+  { color: 'var(--blue)', label: 'Adapter interface' },
+  { color: 'var(--orange)', label: 'Platform-specific' },
+];
+
+// ── Rendering ──
+
+function setView(v) {
+  state.view = v;
+  state.selected = null;
+  document.querySelectorAll('.view-toggle button').forEach((b, i) => {
+    b.classList.toggle('active', ['current','foundation','target'][i] === v);
+  });
+  render();
+}
+
+function selectLayer(id) {
+  state.selected = state.selected === id ? null : id;
+  render();
+}
+
+function render() {
+  renderLegend();
+  renderDiagram();
+  renderDetail();
+  updatePrompt();
+}
+
+function renderLegend() {
+  const items = state.view === 'current' ? CURRENT_LEGEND : state.view === 'foundation' ? FOUNDATION_LEGEND : TARGET_LEGEND;
+  document.getElementById('legend').innerHTML = items.map(i =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${i.color}"></div>${i.label}</div>`
+  ).join('');
+}
+
+function renderDiagram() {
+  if (state.view === 'foundation') { renderFoundationDiagram(); return; }
+
+  const layers = state.view === 'current' ? CURRENT_LAYERS : TARGET_LAYERS;
+  const flows = state.view === 'current' ? CURRENT_FLOWS : TARGET_FLOWS;
+  const isTarget = state.view === 'target';
+
+  const W = 900, H = isTarget ? 520 : 460;
+  const LW = 560, LH = 56, PAD_TOP = 30, GAP = isTarget ? 80 : 76;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += svgDefs();
+  svg += `<text x="${W/2}" y="18" text-anchor="middle" class="section-label">${isTarget ? 'Target: Multi-Platform' : 'Current: Electron Monolith'}</text>`;
+
+  layers.forEach(l => {
+    let x, y, w = LW, h = LH;
+    if (isTarget && l.y === 3.5) {
+      const sw = 170, sg = 16, tw = sw * 3 + sg * 2;
+      x = (W - tw) / 2 + (l.x + 1) * (sw + sg);
+      y = PAD_TOP + l.y * GAP; w = sw;
+    } else {
+      x = (W - LW) / 2; y = PAD_TOP + l.y * GAP;
+    }
+    svg += layerSvg(l, x, y, w, h);
+  });
+
+  flows.forEach((f, i) => {
+    svg += flowSvg(f, layers, W, LW, LH, PAD_TOP, GAP, isTarget, i, flows.length);
+  });
+
+  if (!isTarget) {
+    const bx = (W + LW) / 2 + 24;
+    svg += `<line class="bracket-line" x1="${bx}" y1="${PAD_TOP + GAP + 10}" x2="${bx}" y2="${PAD_TOP + 3 * GAP + LH - 10}"/>`;
+    svg += `<line class="bracket-line" x1="${bx}" y1="${PAD_TOP + GAP + 10}" x2="${bx + 6}" y2="${PAD_TOP + GAP + 10}"/>`;
+    svg += `<line class="bracket-line" x1="${bx}" y1="${PAD_TOP + 3 * GAP + LH - 10}" x2="${bx + 6}" y2="${PAD_TOP + 3 * GAP + LH - 10}"/>`;
+    svg += `<text x="${bx + 12}" y="${PAD_TOP + 2.2 * GAP + 14}" class="section-label" fill="var(--orange)" opacity=".7" text-anchor="start" font-size="9">Coupled to</text>`;
+    svg += `<text x="${bx + 12}" y="${PAD_TOP + 2.2 * GAP + 26}" class="section-label" fill="var(--orange)" opacity=".7" text-anchor="start" font-size="9">Electron IPC</text>`;
+
+    // Problems annotation
+    const px = (W - LW) / 2 - 12;
+    svg += `<text x="${px}" y="${PAD_TOP + 4 * GAP + 18}" text-anchor="end" class="section-label" fill="var(--red)" opacity=".7" font-size="9">No logging</text>`;
+    svg += `<text x="${px}" y="${PAD_TOP + 4 * GAP + 30}" text-anchor="end" class="section-label" fill="var(--red)" opacity=".7" font-size="9">No events</text>`;
+    svg += `<text x="${px}" y="${PAD_TOP + 4 * GAP + 42}" text-anchor="end" class="section-label" fill="var(--red)" opacity=".7" font-size="9">No harness</text>`;
+  }
+
+  if (isTarget) {
+    const shellY = PAD_TOP + 3.5 * GAP;
+    svg += `<text x="${W/2}" y="${shellY - 10}" text-anchor="middle" class="section-label" fill="var(--orange)" opacity=".6" font-size="9">Platform Shells (swap at deploy time)</text>`;
+  }
+
+  svg += `</svg>`;
+  document.getElementById('canvas').innerHTML = svg;
+}
+
+function renderFoundationDiagram() {
+  const layers = FOUNDATION_LAYERS;
+  const crosscuts = FOUNDATION_CROSSCUTS;
+
+  const W = 1000, H = 500;
+  const LW = 480, LH = 52, PAD_TOP = 30, GAP = 72;
+  const CX = (W - LW) / 2;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+  svg += svgDefs();
+  svg += `<text x="${W/2}" y="18" text-anchor="middle" class="section-label">Foundation: Phase A — Logging, Lifecycle, CLI, Harness</text>`;
+
+  // Main layers (centered)
+  layers.forEach(l => {
+    const x = CX, y = PAD_TOP + l.y * GAP;
+    svg += layerSvg(l, x, y, LW, LH);
+  });
+
+  // Flow lines between main layers
+  FOUNDATION_FLOWS.forEach((f, i) => {
+    svg += flowSvg(f, layers, W, LW, LH, PAD_TOP, GAP, false, i, FOUNDATION_FLOWS.length);
+  });
+
+  // Cross-cutting systems
+  const CCW = 140, CCH = 52, CCG = 16;
+  const rightX = CX + LW + 40;
+  const leftX = CX - CCW - 40;
+
+  crosscuts.forEach(cc => {
+    const x = cc.side === 'right' ? rightX : leftX;
+    const y = PAD_TOP + (cc.row + 1.5) * GAP + cc.row * CCG;
+
+    const colors = getColors(cc.color);
+    const sel = state.selected === cc.id;
+
+    svg += `<g class="layer-group ${sel ? 'selected' : ''}" onclick="selectLayer('${cc.id}')">`;
+    svg += `<rect class="crosscut-rect" x="${x}" y="${y}" width="${CCW}" height="${CCH}" fill="${colors.fill}" stroke="${colors.stroke}" stroke-width="${sel ? 2 : 1}"/>`;
+    svg += `<text x="${x + CCW/2}" y="${y + 20}" text-anchor="middle" class="crosscut-label" fill="${colors.text}" font-size="12">${cc.label}</text>`;
+    svg += `<text x="${x + CCW/2}" y="${y + 36}" text-anchor="middle" class="crosscut-sublabel" fill="${colors.text}" opacity=".6">${cc.sub}</text>`;
+    svg += `</g>`;
+
+    // Connection lines from crosscut to main stack
+    const mainEdge = cc.side === 'right' ? CX + LW : CX;
+    const ccEdge = cc.side === 'right' ? x : x + CCW;
+    const midY = y + CCH / 2;
+
+    svg += `<line x1="${ccEdge}" y1="${midY}" x2="${mainEdge}" y2="${midY}" stroke="${colors.stroke}" stroke-width="1" stroke-dasharray="4 3" opacity=".4"/>`;
+  });
+
+  // Bracket: "New in Phase A"
+  const rCCs = crosscuts.filter(c => c.side === 'right');
+  const lCCs = crosscuts.filter(c => c.side === 'left');
+
+  if (rCCs.length > 0) {
+    const topY = PAD_TOP + (rCCs[0].row + 1.5) * GAP;
+    const botY = PAD_TOP + (rCCs[rCCs.length - 1].row + 1.5) * GAP + rCCs[rCCs.length - 1].row * CCG + CCH;
+    const bx = rightX + CCW + 12;
+    svg += `<line class="bracket-line" x1="${bx}" y1="${topY}" x2="${bx}" y2="${botY}" opacity=".3"/>`;
+    svg += `<text x="${bx + 8}" y="${(topY + botY) / 2 - 4}" class="section-label" fill="var(--blue)" opacity=".6" text-anchor="start" font-size="9">New in</text>`;
+    svg += `<text x="${bx + 8}" y="${(topY + botY) / 2 + 8}" class="section-label" fill="var(--blue)" opacity=".6" text-anchor="start" font-size="9">Phase A</text>`;
+  }
+  if (lCCs.length > 0) {
+    const topY = PAD_TOP + (lCCs[0].row + 1.5) * GAP;
+    const botY = PAD_TOP + (lCCs[lCCs.length - 1].row + 1.5) * GAP + lCCs[lCCs.length - 1].row * CCG + CCH;
+    const bx = leftX - 12;
+    svg += `<line class="bracket-line" x1="${bx}" y1="${topY}" x2="${bx}" y2="${botY}" opacity=".3"/>`;
+    svg += `<text x="${bx - 8}" y="${(topY + botY) / 2 - 4}" class="section-label" fill="var(--green)" opacity=".6" text-anchor="end" font-size="9">New in</text>`;
+    svg += `<text x="${bx - 8}" y="${(topY + botY) / 2 + 8}" class="section-label" fill="var(--green)" opacity=".6" text-anchor="end" font-size="9">Phase A</text>`;
+  }
+
+  // ChatRegistry annotation
+  const mainY = PAD_TOP + 4 * GAP;
+  svg += `<text x="${CX + LW/2}" y="${mainY + LH + 16}" text-anchor="middle" class="section-label" fill="var(--green)" opacity=".6" font-size="9">ChatRegistry simplified: per-chat metadata.json, ~230 lines removed</text>`;
+
+  svg += `</svg>`;
+  document.getElementById('canvas').innerHTML = svg;
+}
+
+// ── SVG helpers ──
+
+function svgDefs() {
+  return `<defs>
+    <marker id="arr-pty" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--blue)" opacity=".6"/></marker>
+    <marker id="arr-reg" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--green)" opacity=".6"/></marker>
+    <marker id="arr-state" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--orange)" opacity=".6"/></marker>
+  </defs>`;
+}
+
+function getColors(color) {
+  return {
+    green: { fill: 'var(--green-bg)', stroke: 'var(--green-border)', text: 'var(--green)' },
+    blue: { fill: 'var(--blue-bg)', stroke: 'var(--blue-border)', text: 'var(--blue)' },
+    orange: { fill: 'var(--orange-bg)', stroke: 'var(--orange-border)', text: 'var(--orange)' },
+    purple: { fill: 'var(--purple-bg)', stroke: 'var(--purple-border)', text: 'var(--purple)' },
+    yellow: { fill: 'var(--yellow-bg)', stroke: 'var(--yellow-border)', text: 'var(--yellow)' },
+    red: { fill: 'var(--red-bg)', stroke: 'var(--red-border)', text: 'var(--red)' },
+  }[color];
+}
+
+function layerSvg(l, x, y, w, h) {
+  const colors = getColors(l.color);
+  const sel = state.selected === l.id;
+  let s = `<g class="layer-group ${sel ? 'selected' : ''}" onclick="selectLayer('${l.id}')">`;
+  s += `<rect class="layer-rect" x="${x}" y="${y}" width="${w}" height="${h}" fill="${colors.fill}" stroke="${colors.stroke}" stroke-width="${sel ? 2 : 1}"/>`;
+  s += `<text x="${x + w/2}" y="${y + 20}" text-anchor="middle" class="layer-label" fill="${colors.text}" font-size="13">${l.label}</text>`;
+  s += `<text x="${x + w/2}" y="${y + 36}" text-anchor="middle" class="layer-sublabel" fill="${colors.text}">${l.sub}</text>`;
+  s += `</g>`;
+  return s;
+}
+
+function flowSvg(f, layers, W, LW, LH, PAD_TOP, GAP, isTarget, idx, total) {
+  const fromL = layers.find(l => l.id === f.from);
+  const toL = layers.find(l => l.id === f.to);
+  if (!fromL || !toL) return '';
+
+  const getPos = (l, isFrom) => {
+    let cx, cy;
+    if (isTarget && l.y === 3.5) {
+      const sw = 170, sg = 16, tw = sw * 3 + sg * 2, sx = (W - tw) / 2;
+      cx = sx + (l.x + 1) * (sw + sg) + sw / 2;
+      cy = PAD_TOP + l.y * GAP + (isFrom ? 0 : LH);
+    } else {
+      cx = W / 2;
+      cy = PAD_TOP + l.y * GAP + (isFrom ? 0 : LH);
+    }
+    return { cx, cy };
+  };
+
+  const from = getPos(fromL, true);
+  const to = getPos(toL, false);
+  const offset = (idx % 3 - 1) * 30;
+  const marker = `url(#arr-${f.type})`;
+  const midY = (from.cy + to.cy) / 2;
+
+  let s = `<path class="flow-line ${f.type}" d="M${from.cx + offset},${from.cy} C${from.cx + offset},${midY} ${to.cx + offset},${midY} ${to.cx + offset},${to.cy}" marker-end="${marker}"/>`;
+
+  const lx = (from.cx + to.cx) / 2 + offset;
+  const tw = f.label.length * 5.5 + 8;
+  s += `<rect class="flow-label-bg" x="${lx - tw/2}" y="${midY - 7}" width="${tw}" height="14" rx="3"/>`;
+  s += `<text class="flow-label-text" x="${lx}" y="${midY + 3}" text-anchor="middle">${f.label}</text>`;
+  return s;
+}
+
+// ── Detail panel ──
+
+function renderDetail() {
+  const panel = document.getElementById('detail');
+  if (!state.selected) {
+    panel.innerHTML = '<div class="detail-empty">Click a layer to inspect</div>';
+    return;
+  }
+
+  let l;
+  if (state.view === 'foundation') {
+    l = FOUNDATION_LAYERS.find(la => la.id === state.selected) || FOUNDATION_CROSSCUTS.find(c => c.id === state.selected);
+  } else {
+    const layers = state.view === 'current' ? CURRENT_LAYERS : TARGET_LAYERS;
+    l = layers.find(la => la.id === state.selected);
+  }
+  if (!l) { panel.innerHTML = '<div class="detail-empty">Click a layer to inspect</div>'; return; }
+
+  const tagClass = 'tag-' + l.color;
+  const tagLabel = { green: 'platform-agnostic', blue: 'adapter interface', orange: 'platform-specific', purple: 'harness system', yellow: 'logging' }[l.color] || l.color;
+
+  let html = `<div class="detail-header">
+    <h2>${l.label}</h2>
+    <span class="tag ${tagClass}">${tagLabel}</span>
+  </div>
+  <div class="detail-body">
+    <p>${l.desc}</p>
+    <div class="detail-section">
+      <h3>Key Files</h3>
+      <ul class="file-list">${l.files.map(f => `<li>${f}</li>`).join('')}</ul>
+    </div>
+    <div class="detail-section">
+      <h3>Details</h3>
+      <ul class="method-list">${l.details.map(d => `<li>${d}</li>`).join('')}</ul>
+    </div>`;
+
+  // Current view: migration notes
+  if (state.view === 'current' && l.migration) {
+    html += `<div class="flow-section">
+      <div class="detail-section"><h3>Migration</h3></div>
+      <div class="flow-item"><span class="flow-arrow">&#x2192;</span><div class="flow-text"><strong>${l.migration.action}</strong><br>${l.migration.note}</div></div>
+    </div>`;
+  }
+
+  // Current view: problems
+  if (state.view === 'current' && l.problems) {
+    html += `<div class="flow-section">
+      <div class="detail-section"><h3>Problems</h3></div>
+      <ul class="method-list">${l.problems.map(p => `<li style="color:var(--red)">${p}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  // Foundation view: events
+  if (state.view === 'foundation' && l.events) {
+    html += `<div class="flow-section">
+      <div class="detail-section"><h3>Events</h3></div>
+      <ul class="method-list">${l.events.map(e => `<li><span class="event-badge" style="background:var(--surface2);color:var(--text-dim)">${e}</span></li>`).join('')}</ul>
+    </div>`;
+  }
+
+  // Foundation view: changes
+  if (state.view === 'foundation' && l.changes) {
+    html += `<div class="flow-section">
+      <div class="detail-section"><h3>What Changed</h3></div>
+      <ul class="method-list">${l.changes.map(c => `<li style="color:var(--green)">${c}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  // Target view: adapter data flows
+  if (state.view === 'target' && l.id === 'adapter') {
+    html += `<div class="flow-section">
+      <div class="detail-section"><h3>Data Flows Through Adapter</h3></div>
+      <div class="flow-item"><span class="flow-arrow" style="color:var(--blue)">&#x27F6;</span><div class="flow-text"><strong>PTY streaming</strong><br>pty.onData() returns Unsubscribe. Desktop: IPC events. Web: WebSocket.</div></div>
+      <div class="flow-item"><span class="flow-arrow" style="color:var(--green)">&#x27F6;</span><div class="flow-text"><strong>Registry pushes</strong><br>chatRegistry.onStateChanged() pushes chat state updates.</div></div>
+      <div class="flow-item"><span class="flow-arrow" style="color:var(--orange)">&#x27F6;</span><div class="flow-text"><strong>State persistence</strong><br>state.save/load() debounced 500ms. Desktop: file. Web: API.</div></div>
+    </div>`;
+  }
+
+  if (state.view === 'target' && l.id === 'app') {
+    html += `<div class="flow-section">
+      <div class="detail-section"><h3>What Changed</h3></div>
+      <div class="flow-item"><span class="flow-arrow">&#x2192;</span><div class="flow-text"><strong>window.api.X</strong> becomes <strong>usePlatform().X</strong><br>Same call sites, different source. Context-injected.</div></div>
+      <div class="flow-item"><span class="flow-arrow">&#x2192;</span><div class="flow-text"><strong>Store factory</strong><br>initApp(adapter) creates store with adapter in closure.</div></div>
+      <div class="flow-item"><span class="flow-arrow">&#x2192;</span><div class="flow-text"><strong>Testable</strong><br>Mock adapter with event emitters. Full store + component tests, no Electron.</div></div>
+    </div>`;
+  }
+
+  html += `</div>`;
+  panel.innerHTML = html;
+}
+
+// ── Prompt ──
+
+function updatePrompt() {
+  let prompt;
+  const sel = state.selected;
+
+  if (state.view === 'current') {
+    const l = sel && CURRENT_LAYERS.find(la => la.id === sel);
+    prompt = l
+      ? `Current: ${l.label} (${l.sub}) \u2014 ${l.desc}`
+      : 'Current architecture: renderer coupled to Electron via window.api (50 methods, 13 namespaces). No structured logging, no terminal lifecycle hooks, no LLM harness visibility.';
+  } else if (state.view === 'foundation') {
+    const l = sel && (FOUNDATION_LAYERS.find(la => la.id === sel) || FOUNDATION_CROSSCUTS.find(c => c.id === sel));
+    prompt = l
+      ? `Foundation: ${l.label} (${l.files?.[0] || ''}) \u2014 ${l.desc}`
+      : 'Phase A foundation: structured logger (JSON lines), lifecycle event emitter (terminal + harness + CLI streams), parlour CLI (agent-facing), harness hooks (Claude CLI + output parser), simplified ChatRegistry (filesystem as truth, ~230 lines removed).';
+  } else {
+    const l = sel && TARGET_LAYERS.find(la => la.id === sel);
+    prompt = l
+      ? `Target: ${l.label} (${l.sub}) \u2014 ${l.desc}`
+      : 'Target: extract React app into @parlour/app behind PlatformAdapter interface. Electron becomes thin shell. Enables Tauri + web targets. Foundation systems (logger, lifecycle, CLI, harness) carry over.';
+  }
+
+  document.getElementById('prompt').textContent = prompt;
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+render();
+</script>
+</body>
+</html>

@@ -54,8 +54,8 @@ export const IPC = {
   SHELL_RUN_COMMAND: 'shell:run-command',
   SHELL_OPEN_EXTERNAL: 'shell:open-external',
 
-  // MCP orchestration
-  MCP_GET_PORT: 'mcp:get-port',
+  // API server
+  API_GET_PORT: 'api:get-port',
 
   // Git clone
   GIT_CLONE_BARE: 'git:clone-bare',

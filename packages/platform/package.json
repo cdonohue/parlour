@@ -1,0 +1,13 @@
+{
+  "name": "@parlour/platform",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing/mock-adapter": "./src/testing/mock-adapter.ts"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

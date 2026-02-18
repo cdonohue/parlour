@@ -1,22 +1,25 @@
 import { BrowserWindow, nativeTheme } from 'electron'
 import { join, basename, resolve } from 'node:path'
-import { readFile, writeFile, mkdir, rm, symlink, lstat, readdir, stat } from 'node:fs/promises'
-import { existsSync, writeFileSync, mkdirSync, renameSync, watch } from 'node:fs'
-import type { FSWatcher } from 'node:fs'
+import { readFile, writeFile, mkdir, rm, symlink, readdir, stat } from 'node:fs/promises'
+import { existsSync, writeFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { IPC } from '../shared/ipc-channels'
 import { PtyManager } from './pty-manager'
 import { GitService } from './git-service'
-import { loadJsonFile, saveJsonFile } from './claude-config'
 import { PARLOUR_DIR, BARE_DIR, PROJECT_SETUP_DIR, createChatDir, writeAgentsMd, scanProjects, copySkillsToChat, ensureGlobalSkills } from './parlour-dirs'
 import type { ProjectInfo } from './parlour-dirs'
 import { generateCliConfig } from './cli-config'
 import { resolveCliType, getResumeArgs } from './cli-detect'
-import { ForgeService } from './forge-service'
+import { logger as rootLogger } from './logger'
+import { lifecycle } from './lifecycle'
+import type { HarnessEvent } from './lifecycle'
+import { createParser } from './harness-parser'
+import { HarnessTracker } from './harness-tracker'
 
 const execAsync = promisify(execFile)
+const log = rootLogger.child({ service: 'ChatRegistry' })
 
 function themeEnv(): Record<string, string> {
   const light = !nativeTheme.shouldUseDarkColors
@@ -51,24 +54,18 @@ export interface CreateChatOpts {
 export class ChatRegistry {
   private static IDLE_THRESHOLD = 3000
   private chats: ChatRecord[] = []
-  private savedBuffers = new Map<string, string>()
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private branchWatchers = new Map<string, FSWatcher>()
-  private branchDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private prPoller: ReturnType<typeof setInterval> | null = null
+  private harnessTrackers = new Map<string, HarnessTracker>()
   private ptyManager: PtyManager
   private settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] }
   private persistTimer: ReturnType<typeof setTimeout> | null = null
-  private registryFile: string
 
   constructor(
     ptyManager: PtyManager,
     settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] },
-    dataDir: string,
   ) {
     this.ptyManager = ptyManager
     this.settingsGetter = settingsGetter
-    this.registryFile = join(dataDir, 'chat-registry.json')
   }
 
   getState(): { chats: ChatRecord[] } {
@@ -97,7 +94,7 @@ export class ChatRegistry {
     const idx = this.chats.findIndex((c) => c.id === id)
     if (idx === -1) return
     this.chats[idx] = { ...this.chats[idx], ...partial }
-    this.schedulePersist()
+    this.persistChat(this.chats[idx])
     this.pushToRenderer()
   }
 
@@ -186,115 +183,11 @@ export class ChatRegistry {
     if (!chat?.dirPath) return
     const projects = await scanProjects(chat.dirPath)
     this.updateChat(chatId, { projects })
-    this.watchChatBranches(chatId)
-    this.fetchPrForChat(chatId).catch(() => {})
   }
 
-  private watchChatBranches(chatId: string): void {
-    const chat = this.getChat(chatId)
-    if (!chat?.projects) return
-
-    for (const project of chat.projects) {
-      if (!project.isGitRepo) continue
-      const headPath = join(project.path, '.git', 'HEAD')
-      const key = `${chatId}:${project.path}`
-      if (this.branchWatchers.has(key)) continue
-      if (!existsSync(headPath)) continue
-
-      try {
-        const watcher = watch(headPath, () => {
-          const existing = this.branchDebounceTimers.get(key)
-          if (existing) clearTimeout(existing)
-          this.branchDebounceTimers.set(key, setTimeout(() => {
-            this.branchDebounceTimers.delete(key)
-            this.refreshProjectBranch(chatId, project.path)
-          }, 200))
-        })
-        this.branchWatchers.set(key, watcher)
-      } catch {}
-    }
-  }
-
-  private async refreshProjectBranch(chatId: string, projectPath: string): Promise<void> {
-    const chat = this.getChat(chatId)
-    if (!chat?.projects) return
-
-    try {
-      const branch = await GitService.getCurrentBranch(projectPath)
-      const project = chat.projects.find((p) => p.path === projectPath)
-      if (project && project.branch !== branch) {
-        this.updateChat(chatId, {
-          projects: chat.projects.map((p) =>
-            p.path === projectPath ? { ...p, branch, prInfo: undefined } : p,
-          ),
-        })
-      }
-    } catch {}
-
-    this.fetchPrForChat(chatId).catch(() => {})
-  }
-
-  private unwatchChat(chatId: string): void {
-    for (const [key, watcher] of this.branchWatchers) {
-      if (key.startsWith(`${chatId}:`)) {
-        watcher.close()
-        this.branchWatchers.delete(key)
-        const timer = this.branchDebounceTimers.get(key)
-        if (timer) {
-          clearTimeout(timer)
-          this.branchDebounceTimers.delete(key)
-        }
-      }
-    }
-  }
-
-  unwatchAll(): void {
-    for (const watcher of this.branchWatchers.values()) watcher.close()
-    this.branchWatchers.clear()
-    for (const timer of this.branchDebounceTimers.values()) clearTimeout(timer)
-    this.branchDebounceTimers.clear()
-    this.stopPrPoller()
-  }
-
-  private async fetchPrForChat(chatId: string): Promise<void> {
-    const chat = this.getChat(chatId)
-    if (!chat?.projects) return
-
-    for (const project of chat.projects) {
-      if (!project.isGitRepo || !project.branch) continue
-      const result = await ForgeService.getPrStatuses(project.path, [project.branch])
-      if (!result.available) continue
-
-      const prInfo = result.data[project.branch] ?? undefined
-      const prev = chat.projects.find((p) => p.path === project.path)?.prInfo
-      const changed = prev?.number !== prInfo?.number || prev?.checkStatus !== prInfo?.checkStatus || prev?.state !== prInfo?.state
-      if (changed) {
-        const fresh = this.getChat(chatId)
-        if (!fresh?.projects) return
-        this.updateChat(chatId, {
-          projects: fresh.projects.map((p) =>
-            p.path === project.path ? { ...p, prInfo } : p,
-          ),
-        })
-      }
-    }
-  }
-
-  startPrPoller(): void {
-    if (this.prPoller) return
-    this.prPoller = setInterval(() => {
-      for (const chat of this.chats) {
-        if (!chat.projects?.some((p) => p.isGitRepo && p.branch)) continue
-        this.fetchPrForChat(chat.id).catch(() => {})
-      }
-    }, 60_000)
-  }
-
-  private stopPrPoller(): void {
-    if (this.prPoller) {
-      clearInterval(this.prPoller)
-      this.prPoller = null
-    }
+  cleanup(): void {
+    for (const timer of this.idleTimers.values()) clearTimeout(timer)
+    this.idleTimers.clear()
   }
 
   // ── Chat lifecycle ──
@@ -316,10 +209,7 @@ export class ChatRegistry {
       }
 
       await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
-      const mcpPort = await this.readMcpPort()
-      if (mcpPort) {
-        await generateCliConfig(dirPath, chatId, mcpPort, resolveCliType(llmCommand), llmCommand)
-      }
+      await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
 
       const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...themeEnv() }
       const webContents = this.getWebContents()
@@ -332,10 +222,14 @@ export class ChatRegistry {
 
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
+    this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     if (opts.prompt) {
-      this.ptyManager.writeWhenReady(ptyId, opts.prompt).catch((err) => {
-        console.error(`[ChatRegistry] Prompt delivery failed for ${chatId}: ${err.message}`)
+      this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
+        lifecycle.emit({ type: 'pty:prompt-delivered', ptyId, chatId })
+      }).catch((err) => {
+        lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
+        log.error('Prompt delivery failed', { chatId, error: err.message })
         this.updateChat(chatId, { status: 'failed' as ChatStatus })
       })
     }
@@ -354,9 +248,10 @@ export class ChatRegistry {
     }
 
     this.chats.push(chat)
-    this.watchChatBranches(chatId)
-    this.schedulePersist()
+    this.persistChat(chat)
     this.pushToRenderer()
+    lifecycle.emit({ type: 'chat:created', chatId, name: chat.name })
+    lifecycle.emit({ type: 'pty:spawned', ptyId, chatId })
     return { chat }
   }
 
@@ -383,10 +278,7 @@ export class ChatRegistry {
     }
 
     await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
-    const mcpPort = await this.readMcpPort()
-    if (mcpPort) {
-      await generateCliConfig(dirPath, chatId, mcpPort, resolveCliType(llmCommand), llmCommand)
-    }
+    await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
 
     if (parent.ptyId) {
       try {
@@ -405,10 +297,14 @@ export class ChatRegistry {
 
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
+    this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     if (opts.prompt) {
-      this.ptyManager.writeWhenReady(ptyId, opts.prompt).catch((err) => {
-        console.error(`[ChatRegistry] Prompt delivery failed for child ${chatId}: ${err.message}`)
+      this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
+        lifecycle.emit({ type: 'pty:prompt-delivered', ptyId, chatId })
+      }).catch((err) => {
+        lifecycle.emit({ type: 'pty:prompt-failed', ptyId, chatId, error: err.message })
+        log.error('Prompt delivery failed', { chatId, parentId, error: err.message })
         this.updateChat(chatId, { status: 'failed' as ChatStatus })
       })
     }
@@ -428,9 +324,10 @@ export class ChatRegistry {
     }
 
     this.chats.push(chat)
-    this.watchChatBranches(chatId)
-    this.schedulePersist()
+    this.persistChat(chat)
     this.pushToRenderer()
+    lifecycle.emit({ type: 'chat:created', chatId, name: chat.name })
+    lifecycle.emit({ type: 'pty:spawned', ptyId, chatId })
     return { chat }
   }
 
@@ -452,20 +349,20 @@ export class ChatRegistry {
     const command = this.buildShellCommand(llmCommand, resumeArgs)
     const ptyId = await this.ptyManager.create(chat.dirPath, webContents, undefined, command, undefined, env)
 
-    let savedBuf = this.savedBuffers.get(chatId)
-    if (savedBuf) {
-      this.savedBuffers.delete(chatId)
-    } else {
-      try { savedBuf = await readFile(join(chat.dirPath, 'terminal-buffer'), 'utf-8') } catch {}
-    }
+    let savedBuf: string | undefined
+    try { savedBuf = await readFile(join(chat.dirPath, 'terminal-buffer'), 'utf-8') } catch {}
     if (savedBuf) this.ptyManager.seedBuffer(ptyId, savedBuf)
 
     this.registerExitHandler(chatId, ptyId)
     this.registerActivityHandler(chatId, ptyId)
+    this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
     this.updateChatInternal(chatId, { ptyId, status: 'active' })
-    this.schedulePersist()
+    const updated = this.getChat(chatId)
+    if (updated) this.persistChat(updated)
     this.pushToRenderer()
+    lifecycle.emit({ type: 'chat:resumed', chatId, ptyId })
+    lifecycle.emit({ type: 'pty:spawned', ptyId, chatId })
   }
 
   async deleteChat(chatId: string): Promise<void> {
@@ -484,14 +381,15 @@ export class ChatRegistry {
     for (const cid of idsToRemove) {
       const chat = this.getChat(cid)
       if (!chat) continue
-      this.unwatchChat(cid)
       if (chat.ptyId) this.ptyManager.destroy(chat.ptyId)
       if (chat.dirPath) await rm(chat.dirPath, { recursive: true, force: true }).catch(() => {})
     }
 
     this.chats = this.chats.filter((c) => !idsToRemove.has(c.id))
-    this.schedulePersist()
     this.pushToRenderer()
+    for (const cid of idsToRemove) {
+      lifecycle.emit({ type: 'chat:deleted', chatId: cid })
+    }
   }
 
   async retitleChat(chatId: string): Promise<void> {
@@ -509,21 +407,9 @@ export class ChatRegistry {
     }
   }
 
-  // ── Persistence ──
+  // ── Persistence (per-chat metadata.json) ──
 
   async loadFromDisk(): Promise<void> {
-    try {
-      const data = await loadJsonFile<{ chats?: ChatRecord[] }>(this.registryFile, {})
-      if (data.chats?.length) {
-        this.chats = data.chats
-        return
-      }
-    } catch {}
-
-    await this.recoverFromDirs()
-  }
-
-  private async recoverFromDirs(): Promise<void> {
     const chatsDir = join(PARLOUR_DIR, 'chats')
     let entries: string[]
     try {
@@ -532,7 +418,7 @@ export class ChatRegistry {
       return
     }
 
-    const recovered: ChatRecord[] = []
+    const loaded: ChatRecord[] = []
     for (const name of entries) {
       if (name.startsWith('.')) continue
       const dirPath = join(chatsDir, name)
@@ -544,32 +430,47 @@ export class ChatRegistry {
         continue
       }
 
-      const created = s.birthtimeMs || s.mtimeMs
-      recovered.push({
-        id: name,
-        name: 'Recovered Chat',
-        status: 'done',
-        ptyId: null,
-        dirPath,
-        createdAt: created,
-        lastActiveAt: created,
-        pinnedAt: null,
-      })
+      try {
+        const raw = await readFile(join(dirPath, 'metadata.json'), 'utf-8')
+        const meta = JSON.parse(raw) as Partial<ChatRecord>
+        loaded.push({
+          id: name,
+          name: meta.name ?? 'Chat',
+          status: 'done',
+          ptyId: null,
+          dirPath,
+          createdAt: meta.createdAt ?? s.birthtimeMs ?? s.mtimeMs,
+          lastActiveAt: meta.lastActiveAt ?? s.mtimeMs,
+          pinnedAt: meta.pinnedAt ?? null,
+          parentId: meta.parentId,
+          llmCommand: meta.llmCommand,
+          projects: meta.projects,
+        })
+      } catch {
+        loaded.push({
+          id: name,
+          name: 'Recovered Chat',
+          status: 'done',
+          ptyId: null,
+          dirPath,
+          createdAt: s.birthtimeMs ?? s.mtimeMs,
+          lastActiveAt: s.mtimeMs,
+          pinnedAt: null,
+        })
+      }
     }
 
-    if (recovered.length > 0) {
-      console.log(`[ChatRegistry] Recovered ${recovered.length} chats from disk`)
-      this.chats = recovered
-      this.schedulePersist()
+    if (loaded.length > 0) {
+      log.info('Loaded chats from disk', { count: loaded.length })
+      this.chats = loaded
     }
   }
 
   reconcilePtys(): void {
     const orphaned = this.chats.filter((c) => !existsSync(c.dirPath))
     if (orphaned.length > 0) {
-      console.log(`[ChatRegistry] Pruning ${orphaned.length} chats with missing dirs`)
-      const orphanIds = new Set(orphaned.map((c) => c.id))
-      this.chats = this.chats.filter((c) => !orphanIds.has(c.id))
+      log.warn('Pruning chats with missing dirs', { count: orphaned.length })
+      this.chats = this.chats.filter((c) => existsSync(c.dirPath))
     }
 
     const livePtyIds = new Set(this.ptyManager.list())
@@ -584,17 +485,37 @@ export class ChatRegistry {
       } else if (!chat.ptyId && (chat.status === 'active' || chat.status === 'idle')) {
         chat.status = 'done'
       }
-
-      if (chat.projects?.length) {
-        this.watchChatBranches(chat.id)
-      }
     }
+  }
 
-    this.startPrPoller()
-    this.persistSync()
+  getHarnessState(chatId: string): import('./harness-tracker').HarnessState | undefined {
+    return this.harnessTrackers.get(chatId)?.getState()
   }
 
   // ── Internal helpers ──
+
+  private attachHarnessTracking(chatId: string, ptyId: string, llmCommand: string): void {
+    const tracker = new HarnessTracker(chatId)
+    this.harnessTrackers.set(chatId, tracker)
+
+    const cliType = resolveCliType(llmCommand)
+    const parser = createParser(cliType)
+
+    this.ptyManager.onOutput(ptyId, (_id, data) => {
+      const events = parser.feed(chatId, data)
+      for (const event of events) {
+        lifecycle.emit(event)
+        tracker.handleEvent(event)
+      }
+    })
+
+    lifecycle.on('harness:*', (event) => {
+      const he = event as HarnessEvent
+      if ('chatId' in he && he.chatId === chatId) {
+        tracker.handleEvent(he)
+      }
+    })
+  }
 
   private updateChatInternal(id: string, partial: Partial<ChatRecord>): void {
     const idx = this.chats.findIndex((c) => c.id === id)
@@ -625,7 +546,8 @@ export class ChatRegistry {
       const chat = this.getChat(chatId)
       if (!chat?.ptyId || chat.status === 'done' || chat.status === 'error') return
       this.updateChatInternal(chatId, { status: 'idle' })
-      this.schedulePersist()
+      const idled = this.getChat(chatId)
+      if (idled) this.persistChat(idled)
       this.pushToRenderer()
     }, ChatRegistry.IDLE_THRESHOLD))
   }
@@ -644,14 +566,15 @@ export class ChatRegistry {
       if (!chat || chat.ptyId !== ptyId) return
 
       this.clearIdleTimer(chatId)
+      const tracker = this.harnessTrackers.get(chatId)
+      if (tracker) {
+        exitCode === 0 ? tracker.markDone() : tracker.markError()
+      }
       const buf = this.ptyManager.getBuffer(ptyId)
-      if (buf) {
-        this.savedBuffers.set(chatId, buf)
-        if (chat.dirPath) {
-          mkdir(chat.dirPath, { recursive: true }).then(() =>
-            writeFile(join(chat.dirPath, 'terminal-buffer'), buf, 'utf-8'),
-          ).catch(() => {})
-        }
+      if (buf && chat.dirPath) {
+        mkdir(chat.dirPath, { recursive: true }).then(() =>
+          writeFile(join(chat.dirPath, 'terminal-buffer'), buf, 'utf-8'),
+        ).catch(() => {})
       }
 
       this.updateChatInternal(chatId, {
@@ -667,8 +590,13 @@ export class ChatRegistry {
         }
       }
 
+      const newStatus = exitCode === 0 ? 'done' : 'error'
+      lifecycle.emit({ type: 'pty:exit', ptyId, chatId, exitCode })
+      lifecycle.emit({ type: 'chat:status', chatId, from: chat.status as ChatStatus, to: newStatus as ChatStatus })
+
       onExit?.(exitCode)
-      this.schedulePersist()
+      const exited = this.getChat(chatId)
+      if (exited) this.persistChat(exited)
       this.pushToRenderer()
     })
   }
@@ -700,15 +628,6 @@ export class ChatRegistry {
     const win = BrowserWindow.getAllWindows()[0]
     if (!win) throw new Error('No window available')
     return win.webContents
-  }
-
-  private async readMcpPort(): Promise<number | undefined> {
-    try {
-      const portStr = await readFile(join(PARLOUR_DIR, '.mcp-port'), 'utf-8')
-      return parseInt(portStr, 10)
-    } catch {
-      return undefined
-    }
   }
 
   private async summarizeContext(ptyId: string): Promise<string | null> {
@@ -760,32 +679,45 @@ export class ChatRegistry {
       }
       chat.ptyId = null
       chat.status = 'done'
-    }
-
-    this.persistSync()
-  }
-
-  private persistSync(): void {
-    try {
-      const tmp = this.registryFile + '.tmp'
-      mkdirSync(join(this.registryFile, '..'), { recursive: true })
-      writeFileSync(tmp, JSON.stringify({ chats: this.chats }, null, 2), 'utf-8')
-      renameSync(tmp, this.registryFile)
-    } catch (err) {
-      console.error('Failed to persist chat registry:', err)
+      this.persistChatSync(chat)
     }
   }
 
-  private schedulePersist(): void {
+  private persistChat(chat: ChatRecord): void {
     if (this.persistTimer) clearTimeout(this.persistTimer)
-    this.persistTimer = setTimeout(() => this.persist(), 500)
+    this.persistTimer = setTimeout(() => {
+      this.writeChatMetadata(chat).catch((err) => {
+        log.error('Failed to persist chat metadata', { chatId: chat.id, error: String(err) })
+      })
+    }, 500)
   }
 
-  private async persist(): Promise<void> {
+  private async writeChatMetadata(chat: ChatRecord): Promise<void> {
+    if (!chat.dirPath) return
+    await mkdir(chat.dirPath, { recursive: true })
+    const meta = {
+      name: chat.name,
+      createdAt: chat.createdAt,
+      lastActiveAt: chat.lastActiveAt,
+      pinnedAt: chat.pinnedAt,
+      parentId: chat.parentId,
+      llmCommand: chat.llmCommand,
+      projects: chat.projects,
+    }
+    await writeFile(join(chat.dirPath, 'metadata.json'), JSON.stringify(meta, null, 2), 'utf-8')
+  }
+
+  private persistChatSync(chat: ChatRecord): void {
+    if (!chat.dirPath) return
     try {
-      await saveJsonFile(this.registryFile, { chats: this.chats })
+      mkdirSync(chat.dirPath, { recursive: true })
+      const meta = {
+        name: chat.name, createdAt: chat.createdAt, lastActiveAt: chat.lastActiveAt,
+        pinnedAt: chat.pinnedAt, parentId: chat.parentId, llmCommand: chat.llmCommand,
+      }
+      writeFileSync(join(chat.dirPath, 'metadata.json'), JSON.stringify(meta, null, 2), 'utf-8')
     } catch (err) {
-      console.error('Failed to persist chat registry:', err)
+      log.error('Failed to persist chat metadata', { chatId: chat.id, error: String(err) })
     }
   }
 

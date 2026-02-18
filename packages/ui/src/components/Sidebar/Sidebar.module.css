@@ -91,6 +91,7 @@
   --nest-indent: calc(var(--space-4) + var(--space-5) + 6px);
   position: relative;
   margin-left: calc((var(--nest-depth, 1) - 1) * 18px);
+  padding-block: var(--space-2);
 }
 
 .childrenGroup::before {
@@ -102,67 +103,6 @@
   width: 1px;
   background: var(--border-default);
 }
-
-/* ── Chat context menu ── */
-
-.chatMenu {
-  position: fixed;
-  min-width: 120px;
-  background: var(--surface-4);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: var(--space-2);
-  z-index: 9999;
-  box-shadow: var(--shadow-md);
-  transform: translateX(-100%);
-  transform-origin: top right;
-  animation: menuIn 120ms ease-out;
-}
-
-@keyframes menuIn {
-  from {
-    opacity: 0;
-    transform: translateX(-100%) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-100%) scale(1);
-  }
-}
-
-.menuItem {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-family: var(--font-ui);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all var(--transition-fast);
-}
-
-.menuItem:hover {
-  background: var(--surface-3);
-  color: var(--text-primary);
-}
-
-.menuDivider {
-  height: 1px;
-  background: var(--text-ghost);
-  margin: var(--space-2) calc(-1 * var(--space-2));
-}
-
-.menuItemDanger:hover {
-  background: var(--accent-red-dim);
-  color: var(--accent-red);
-}
-
 
 /* ── Task Items ── */
 
