@@ -101,7 +101,7 @@ Use the \`parlour\` command to interact with Parlour. Run \`parlour --help\` for
 
 ### Dispatch & Orchestration
 
-- \`parlour dispatch "<prompt>"\` — Spawn a sub-agent chat. Add \`--project <path>\` for project-scoped work.
+- \`parlour dispatch "<prompt>"\` — Spawn a sub-agent chat. Add \`--project <path>\` for project-scoped work. Add \`--llm <command>\` to use a specific CLI (codex, gemini, opencode, aider).
 - \`parlour status [chatId]\` — Check status of a chat (defaults to current).
 - \`parlour list-children\` — List child chats.
 - \`parlour report "<message>"\` — Send a message to the parent chat.

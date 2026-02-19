@@ -119,7 +119,7 @@ async function configCodex(ctx: ConfigContext): Promise<void> {
   await mkdir(join(chatDir, '.codex'), { recursive: true })
   const mcpServers = buildMcpServers(globalMcpServers)
 
-  let toml = 'approval_policy = "full-auto"\n\n'
+  let toml = 'approval_policy = "never"\n\n'
   for (const [name, config] of Object.entries(mcpServers)) {
     const c = config as Record<string, unknown>
     toml += `[mcp.${name}]\n`
@@ -142,16 +142,12 @@ async function configCodex(ctx: ConfigContext): Promise<void> {
 // ── OpenCode ──
 
 async function configOpenCode(ctx: ConfigContext): Promise<void> {
-  const { chatDir, globalMcpServers } = ctx
-  const mcpServers = buildMcpServers(globalMcpServers)
+  const { chatDir } = ctx
 
-  let config: Record<string, unknown> = { mcp: mcpServers, permission: 'auto' }
+  let config: Record<string, unknown> = {}
   const raw = await readDefaults('opencode', 'opencode.json')
   if (raw) {
-    try {
-      const defaults = JSON.parse(raw)
-      config = { ...defaults, mcp: { ...(defaults.mcp ?? {}), ...mcpServers } }
-    } catch {}
+    try { config = JSON.parse(raw) } catch {}
   }
 
   await writeFile(join(chatDir, 'opencode.json'), JSON.stringify(config, null, 2), 'utf-8')
@@ -206,8 +202,8 @@ export function getCliBaseDefaults(): Record<string, string> {
       permissions: { deny: DEFAULT_DENY, defaultMode: 'bypassPermissions' },
     }, null, 2),
     gemini: JSON.stringify({}, null, 2),
-    codex: 'approval_policy = "full-auto"\n',
-    opencode: JSON.stringify({ permission: 'auto' }, null, 2),
+    codex: 'approval_policy = "never"\n',
+    opencode: JSON.stringify({}, null, 2),
   }
 }
 
