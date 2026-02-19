@@ -658,7 +658,7 @@ export class ApiServer {
         this.handleEventsSubscribe(client, msg.filters)
         break
       case 'theme:resolved':
-        this.service.setThemeMode(msg.resolved === 'dark' ? 'dark' : 'light')
+        this.service.setThemeResolved(msg.resolved)
         break
     }
   }

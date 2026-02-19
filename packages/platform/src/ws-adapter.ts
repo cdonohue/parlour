@@ -280,6 +280,7 @@ export function createWebSocketAdapter(
     },
     theme: {
       setMode: (mode) => api('POST', '/theme/mode', { mode }),
+      setResolved: (resolved) => send({ type: 'theme:resolved', resolved }),
       onResolvedChanged: (cb) => {
         themeListeners.add(cb)
         return () => {

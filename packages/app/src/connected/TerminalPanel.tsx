@@ -33,6 +33,10 @@ export function TerminalPanel({ ptyId, active }: Props) {
   const terminalTheme = useMemo(() => getTerminalTheme(resolvedMode), [resolvedMode])
 
   useEffect(() => {
+    platform.theme.setResolved(resolvedMode)
+  }, [resolvedMode, platform])
+
+  useEffect(() => {
     return platform.pty.onFirstInput(ptyId, (input) => {
       const s = useAppStore.getState()
       const chat = s.chats.find((c) => c.ptyId === ptyId)
