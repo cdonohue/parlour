@@ -4,9 +4,8 @@
   "packageManager": "bun@1.3.3",
   "workspaces": ["packages/*", "parlour-cli", "tauri"],
   "scripts": {
-    "dev": "bun run dev:browser",
-    "dev:server": "turbo dev:server --filter=@parlour/server",
-    "dev:browser": "turbo dev --filter=@parlour/app",
+    "dev": "turbo dev --filter=@parlour/app --filter=@parlour/server",
+    "dev:tauri": "cd tauri && bunx tauri dev",
     "build": "turbo build",
     "check": "turbo typecheck && bunx vitest run",
     "typecheck": "turbo typecheck",

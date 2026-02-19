@@ -8,8 +8,8 @@
 }
 
 .title {
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
   line-height: 1.2;
 }

@@ -9,9 +9,8 @@ All from repo root:
     bun run check       # Typecheck all packages + run unit tests (fast feedback loop)
     bun run typecheck   # Typecheck all packages (turbo, parallel, cached)
     bun run test:unit   # Vitest unit tests
-    bun run dev         # Browser app (Vite HMR)
-    bun run dev:server  # Standalone server (bun --watch, auto-reload)
-    bun run dev:browser # Browser app (Vite HMR)
+    bun run dev         # Browser dev (server + Vite app via turbo)
+    bun run dev:tauri   # Tauri dev (Rust sidecar + Vite app)
     bun run build       # Production build
     bun run test        # All test layers (unit + integration + e2e)
     bun run test:e2e    # Playwright e2e tests

@@ -96,6 +96,7 @@ export interface CliAdapter {
 
 export interface ThemeAdapter {
   setMode(mode: string): Promise<void>
+  setResolved(resolved: 'dark' | 'light'): void
   onResolvedChanged(callback: (resolved: 'dark' | 'light') => void): Unsubscribe
 }
 

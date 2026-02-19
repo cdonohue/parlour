@@ -9,10 +9,6 @@
       "persistent": true,
       "cache": false
     },
-    "dev:server": {
-      "persistent": true,
-      "cache": false
-    },
     "lint": {
       "dependsOn": ["^build"]
     },

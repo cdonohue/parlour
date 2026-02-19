@@ -10,22 +10,21 @@ const serverUrl = `http://localhost:${port}`
 
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-const adapter = createWebSocketAdapter(serverUrl, {
-  theme: {
-    setMode: (mode) =>
-      fetch(`${serverUrl}/api/theme/mode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode }),
-      }).then(() => undefined),
-    onResolvedChanged: (cb) => {
-      const handler = (e: MediaQueryListEvent) => cb(e.matches ? 'dark' : 'light')
-      mediaQuery.addEventListener('change', handler)
-      cb(mediaQuery.matches ? 'dark' : 'light')
-      return () => mediaQuery.removeEventListener('change', handler)
-    },
-  },
-})
+const adapter = createWebSocketAdapter(serverUrl)
+
+adapter.theme.setMode = (mode) =>
+  fetch(`${serverUrl}/api/theme/mode`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  }).then(() => undefined)
+
+adapter.theme.onResolvedChanged = (cb) => {
+  const handler = (e: MediaQueryListEvent) => cb(e.matches ? 'dark' : 'light')
+  mediaQuery.addEventListener('change', handler)
+  cb(mediaQuery.matches ? 'dark' : 'light')
+  return () => mediaQuery.removeEventListener('change', handler)
+}
 
 const store = initApp(adapter)
 

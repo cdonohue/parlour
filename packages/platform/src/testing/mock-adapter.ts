@@ -89,6 +89,7 @@ export function createMockAdapter(overrides: Partial<PlatformAdapter> = {}): Pla
     },
     theme: {
       setMode: () => resolved(undefined),
+      setResolved: () => {},
       onResolvedChanged: () => noopUnsub(),
     },
     state: {

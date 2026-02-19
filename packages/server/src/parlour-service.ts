@@ -419,6 +419,11 @@ export class ParlourService {
 
   setThemeMode(mode: 'system' | 'dark' | 'light'): void {
     this.themeManager.setMode(mode)
+    if (mode !== 'system') this.themeManager.setResolved(mode)
+  }
+
+  setThemeResolved(resolved: 'dark' | 'light'): void {
+    this.themeManager.setResolved(resolved)
   }
 
   getThemeResolved(): 'dark' | 'light' {
