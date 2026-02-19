@@ -8,12 +8,12 @@ import { PtyManager } from './pty-manager'
 import { GitService } from './git-service'
 import { PARLOUR_DIR, BARE_DIR, PROJECT_SETUP_DIR, createChatDir, writeAgentsMd, scanProjects, copySkillsToChat, ensureGlobalSkills } from './parlour-dirs'
 import type { ProjectInfo } from './parlour-dirs'
-import { generateCliConfig } from './cli-config'
-import { resolveCliType, getResumeArgs } from './cli-detect'
+import { resolveAdapter } from './agent-adapter'
+import { BIN_DIR } from './wrapper-manager'
+import { getGlobalMcpServers } from './config-service'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
 import type { HarnessEvent } from './lifecycle'
-import { createParser } from './harness-parser'
 import { HarnessTracker } from './harness-tracker'
 
 const execAsync = promisify(execFile)
@@ -219,10 +219,15 @@ export class ChatRegistry {
       }
 
       await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
-      await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
 
-      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...this.themeEnv() }
-      const command = this.buildShellCommand(llmCommand, [])
+      const adapter = resolveAdapter(llmCommand)
+      const globalMcpServers = await getGlobalMcpServers()
+      await adapter.generateConfig({ chatDir: dirPath, llmCommand, globalMcpServers })
+
+      const adapterEnv = adapter.buildEnv({ chatId })
+      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
+      const promptArgs = (opts.prompt && adapter.supportsPromptArgs) ? adapter.promptArgs(opts.prompt) : []
+      const command = this.buildShellCommand(llmCommand, promptArgs)
       ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
     } catch (err) {
       await rm(dirPath, { recursive: true, force: true }).catch(() => {})
@@ -233,7 +238,7 @@ export class ChatRegistry {
     this.registerActivityHandler(chatId, ptyId)
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
-    if (opts.prompt) {
+    if (opts.prompt && !resolveAdapter(llmCommand).supportsPromptArgs) {
       this.pendingPrompt.add(chatId)
       this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
         this.pendingPrompt.delete(chatId)
@@ -294,7 +299,10 @@ export class ChatRegistry {
       }
 
       await writeAgentsMd(dirPath, projects, this.settingsGetter().projectRoots)
-      await generateCliConfig(dirPath, resolveCliType(llmCommand), llmCommand)
+
+      const adapter = resolveAdapter(llmCommand)
+      const globalMcpServers = await getGlobalMcpServers()
+      await adapter.generateConfig({ chatDir: dirPath, llmCommand, globalMcpServers })
 
       if (parent.ptyId) {
         try {
@@ -306,8 +314,10 @@ export class ChatRegistry {
         } catch {}
       }
 
-      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, ...this.themeEnv() }
-      const command = this.buildShellCommand(llmCommand, [])
+      const adapterEnv = adapter.buildEnv({ chatId, parentChatId: parentId })
+      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
+      const promptArgs = (opts.prompt && adapter.supportsPromptArgs) ? adapter.promptArgs(opts.prompt) : []
+      const command = this.buildShellCommand(llmCommand, promptArgs)
       ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
     } catch (err) {
       await rm(dirPath, { recursive: true, force: true }).catch(() => {})
@@ -318,7 +328,7 @@ export class ChatRegistry {
     this.registerActivityHandler(chatId, ptyId)
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
 
-    if (opts.prompt) {
+    if (opts.prompt && !resolveAdapter(llmCommand).supportsPromptArgs) {
       this.pendingPrompt.add(chatId)
       this.ptyManager.writeWhenReady(ptyId, opts.prompt).then(() => {
         this.pendingPrompt.delete(chatId)
@@ -368,15 +378,19 @@ export class ChatRegistry {
     }
 
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, ...this.themeEnv() }
+    const adapter = resolveAdapter(llmCommand)
+    const adapterEnv = adapter.buildEnv({ chatId, parentChatId: chat.parentId })
+    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
 
-    const args = withResume ? getResumeArgs(resolveCliType(llmCommand)) : []
+    const args = withResume ? adapter.resumeLast : []
     const command = this.buildShellCommand(llmCommand, args)
     const ptyId = await this.ptyManager.create(chat.dirPath, undefined, command, undefined, env)
 
-    let savedBuf: string | undefined
-    try { savedBuf = await readFile(join(chat.dirPath, 'terminal-buffer'), 'utf-8') } catch {}
-    if (savedBuf) this.ptyManager.seedBuffer(ptyId, savedBuf)
+    if (adapter.seedBufferOnResume) {
+      let savedBuf: string | undefined
+      try { savedBuf = await readFile(join(chat.dirPath, 'terminal-buffer'), 'utf-8') } catch {}
+      if (savedBuf) this.ptyManager.seedBuffer(ptyId, savedBuf)
+    }
 
     const startedAt = Date.now()
     this.registerExitHandler(chatId, ptyId, undefined, withResume ? startedAt : undefined)
@@ -529,8 +543,8 @@ export class ChatRegistry {
     const tracker = new HarnessTracker(chatId)
     this.harnessTrackers.set(chatId, tracker)
 
-    const cliType = resolveCliType(llmCommand)
-    const parser = createParser(cliType)
+    const adapter = resolveAdapter(llmCommand)
+    const parser = adapter.createParser()
 
     this.ptyManager.onOutput(ptyId, (_id, data) => {
       const events = parser.feed(chatId, data)

@@ -49,7 +49,10 @@ function usage(): void {
   process.stdout.write(`Usage: parlour <command> [args]
 
 Commands:
-  dispatch <prompt>              Spawn a child chat
+  dispatch <prompt> [flags]      Spawn a chat
+    --llm <command>                Override LLM (e.g. codex, gemini, opencode, aider)
+    --project <path-or-url>        Attach project
+    --branch <name>                Project branch
   status [chatId] [--follow]     Check chat status (--follow for live SSE stream)
   list-children                  List child chats
   report <message>               Send message to parent

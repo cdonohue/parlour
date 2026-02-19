@@ -9,6 +9,8 @@ export { FileService } from './file-service'
 export { ThemeManager } from './theme-manager'
 export { HarnessTracker, type HarnessState, type HarnessStatus } from './harness-tracker'
 export { createParser, ClaudeOutputParser, GenericOutputParser, type HarnessParser } from './harness-parser'
+export { resolveAdapter, getAdapterNames, type AgentAdapter, type AdapterContext, type EnvContext } from './agent-adapter'
+export { WrapperManager, BIN_DIR, SHELL_DIR } from './wrapper-manager'
 
 export { lifecycle, type Lifecycle } from './lifecycle'
 export { logger, type Logger } from './logger'

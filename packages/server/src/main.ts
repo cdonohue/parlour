@@ -38,7 +38,12 @@ function readSettings(): { llmCommand: string; maxChatDepth: number; projectRoot
 const lifecycleLog = logger.child({ source: 'lifecycle' })
 lifecycle.on('*', (event) => lifecycleLog.info(event.type, event))
 
+import { WrapperManager } from './wrapper-manager'
+
 await ensureGlobalSkills().catch((err) => logger.error('Failed to ensure global skills', { error: String(err) }))
+
+const wrapperManager = new WrapperManager(() => readSettings().llmCommand)
+await wrapperManager.setup().catch((err) => logger.error('Failed to setup wrappers', { error: String(err) }))
 
 const themeManager = new ThemeManager()
 const settings = readSettings()

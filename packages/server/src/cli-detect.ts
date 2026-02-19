@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { BIN_DIR } from './wrapper-manager'
 
 const exec = promisify(execFile)
 
@@ -25,6 +26,10 @@ const CLI_REGISTRY: Record<string, CliDef> = {
     resumeWithId: (id) => ['--session', id],
     resumeLast: ['--continue'],
   },
+  aider: {
+    resumeWithId: () => [],
+    resumeLast: [],
+  },
 }
 
 export const KNOWN_CLIS = Object.keys(CLI_REGISTRY) as readonly string[]
@@ -40,8 +45,9 @@ export async function detectInstalledClis(): Promise<string[]> {
   const results = await Promise.all(
     KNOWN_CLIS.map(async (cli) => {
       try {
-        await exec('which', [cli])
-        return cli
+        const { stdout } = await exec('which', ['-a', cli])
+        const real = stdout.trim().split('\n').find((p) => !p.startsWith(BIN_DIR))
+        return real ? cli : null
       } catch {
         return null
       }
