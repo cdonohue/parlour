@@ -589,7 +589,7 @@ export class ApiServer {
     this.wss!.handleUpgrade(req, socket, head, (ws) => {
       log.info('PTY WebSocket connected', { chatId, ptyId })
 
-      this.service.onPtyOutput(ptyId, (_id, data) => {
+      const unsubOutput = this.service.onPtyOutput(ptyId, (_id, data) => {
         if (ws.readyState === WebSocket.OPEN) ws.send(data)
       })
 
@@ -606,6 +606,7 @@ export class ApiServer {
       })
 
       ws.on('close', () => {
+        unsubOutput()
         log.info('PTY WebSocket disconnected', { chatId, ptyId })
       })
     })
@@ -666,34 +667,29 @@ export class ApiServer {
   private handlePtySubscribe(client: WsClient, ptyId: string): void {
     if (client.ptyUnsubs.has(ptyId)) return
 
-    let closed = false
-    const cleanup = () => { closed = true }
+    const unsubs: Array<() => void> = []
 
     const buffer = this.service.getPtyBuffer(ptyId)
     if (buffer) this.send(client.ws, { type: 'pty:buffer', ptyId, data: buffer })
 
-    this.service.onPtyOutput(ptyId, (_id, data) => {
-      if (closed) return
+    unsubs.push(this.service.onPtyOutput(ptyId, (_id, data) => {
       this.send(client.ws, { type: 'pty:data', ptyId, data })
-    })
+    }))
 
-    this.service.onPtyTitle(ptyId, (_id, title) => {
-      if (closed) return
+    unsubs.push(this.service.onPtyTitle(ptyId, (_id, title) => {
       this.send(client.ws, { type: 'pty:title', ptyId, title })
-    })
+    }))
 
-    this.service.onPtyExit(ptyId, (exitCode) => {
-      if (closed) return
+    unsubs.push(this.service.onPtyExit(ptyId, (exitCode) => {
       this.send(client.ws, { type: 'pty:exit', ptyId, exitCode })
       client.ptyUnsubs.delete(ptyId)
-    })
+    }))
 
-    this.service.onPtyFirstInput(ptyId, (_id, input) => {
-      if (closed) return
+    unsubs.push(this.service.onPtyFirstInput(ptyId, (_id, input) => {
       this.send(client.ws, { type: 'pty:firstInput', ptyId, input })
-    })
+    }))
 
-    client.ptyUnsubs.set(ptyId, cleanup)
+    client.ptyUnsubs.set(ptyId, () => { for (const u of unsubs) u() })
   }
 
   private handlePtyUnsubscribe(client: WsClient, ptyId: string): void {

@@ -76,29 +76,59 @@ export class PtyManager {
     return id
   }
 
-  onExit(ptyId: string, callback: (exitCode: number) => void): void {
+  onExit(ptyId: string, callback: (exitCode: number) => void): () => void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onExitCallbacks.push(callback)
+    return () => {
+      const inst = this.ptys.get(ptyId)
+      if (!inst) return
+      const idx = inst.onExitCallbacks.indexOf(callback)
+      if (idx >= 0) inst.onExitCallbacks.splice(idx, 1)
+    }
   }
 
-  onActivity(ptyId: string, callback: (ptyId: string) => void): void {
+  onActivity(ptyId: string, callback: (ptyId: string) => void): () => void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onActivityCallbacks.push(callback)
+    return () => {
+      const inst = this.ptys.get(ptyId)
+      if (!inst) return
+      const idx = inst.onActivityCallbacks.indexOf(callback)
+      if (idx >= 0) inst.onActivityCallbacks.splice(idx, 1)
+    }
   }
 
-  onOutput(ptyId: string, callback: (ptyId: string, data: string) => void): void {
+  onOutput(ptyId: string, callback: (ptyId: string, data: string) => void): () => void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onOutputCallbacks.push(callback)
+    return () => {
+      const inst = this.ptys.get(ptyId)
+      if (!inst) return
+      const idx = inst.onOutputCallbacks.indexOf(callback)
+      if (idx >= 0) inst.onOutputCallbacks.splice(idx, 1)
+    }
   }
 
-  onTitle(ptyId: string, callback: (ptyId: string, title: string) => void): void {
+  onTitle(ptyId: string, callback: (ptyId: string, title: string) => void): () => void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onTitleCallbacks.push(callback)
+    return () => {
+      const inst = this.ptys.get(ptyId)
+      if (!inst) return
+      const idx = inst.onTitleCallbacks.indexOf(callback)
+      if (idx >= 0) inst.onTitleCallbacks.splice(idx, 1)
+    }
   }
 
-  onFirstInput(ptyId: string, callback: (ptyId: string, input: string) => void): void {
+  onFirstInput(ptyId: string, callback: (ptyId: string, input: string) => void): () => void {
     const instance = this.ptys.get(ptyId)
     if (instance) instance.onFirstInputCallbacks.push(callback)
+    return () => {
+      const inst = this.ptys.get(ptyId)
+      if (!inst) return
+      const idx = inst.onFirstInputCallbacks.indexOf(callback)
+      if (idx >= 0) inst.onFirstInputCallbacks.splice(idx, 1)
+    }
   }
 
   getLastOutputAt(ptyId: string): number | null {

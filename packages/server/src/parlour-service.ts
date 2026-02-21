@@ -172,8 +172,8 @@ export class ParlourService {
     return this.chatRegistry.getChat(chatId)?.ptyId ?? undefined
   }
 
-  onPtyOutput(ptyId: string, callback: (ptyId: string, data: string) => void): void {
-    this.ptyManager.onOutput(ptyId, callback)
+  onPtyOutput(ptyId: string, callback: (ptyId: string, data: string) => void): () => void {
+    return this.ptyManager.onOutput(ptyId, callback)
   }
 
   writePty(ptyId: string, data: string): void {
@@ -188,16 +188,16 @@ export class ParlourService {
     return this.ptyManager.getBuffer(ptyId)
   }
 
-  onPtyTitle(ptyId: string, callback: (ptyId: string, title: string) => void): void {
-    this.ptyManager.onTitle(ptyId, callback)
+  onPtyTitle(ptyId: string, callback: (ptyId: string, title: string) => void): () => void {
+    return this.ptyManager.onTitle(ptyId, callback)
   }
 
-  onPtyExit(ptyId: string, callback: (exitCode: number) => void): void {
-    this.ptyManager.onExit(ptyId, callback)
+  onPtyExit(ptyId: string, callback: (exitCode: number) => void): () => void {
+    return this.ptyManager.onExit(ptyId, callback)
   }
 
-  onPtyFirstInput(ptyId: string, callback: (ptyId: string, input: string) => void): void {
-    this.ptyManager.onFirstInput(ptyId, callback)
+  onPtyFirstInput(ptyId: string, callback: (ptyId: string, input: string) => void): () => void {
+    return this.ptyManager.onFirstInput(ptyId, callback)
   }
 
   async createPty(workingDir: string, shell?: string, command?: string[], extraEnv?: Record<string, string>): Promise<string> {

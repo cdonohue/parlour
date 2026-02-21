@@ -21,20 +21,18 @@ export function App() {
   useShortcuts()
   const platform = usePlatform()
 
-  const {
-    activeChatId,
-    contentView,
-    sidebarCollapsed,
-    settingsOpen,
-    newChatDialog,
-    chats,
-    settings,
-    setActiveChat,
-    closeNewChatDialog,
-    createNewChat,
-    createChildChat,
-    resumeChat,
-  } = useAppStore()
+  const activeChatId = useAppStore((s) => s.activeChatId)
+  const contentView = useAppStore((s) => s.contentView)
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed)
+  const settingsOpen = useAppStore((s) => s.settingsOpen)
+  const newChatDialog = useAppStore((s) => s.newChatDialog)
+  const chats = useAppStore((s) => s.chats)
+  const settings = useAppStore((s) => s.settings)
+  const setActiveChat = useAppStore((s) => s.setActiveChat)
+  const closeNewChatDialog = useAppStore((s) => s.closeNewChatDialog)
+  const createNewChat = useAppStore((s) => s.createNewChat)
+  const createChildChat = useAppStore((s) => s.createChildChat)
+  const resumeChat = useAppStore((s) => s.resumeChat)
 
   const chat = chats.find((c) => c.id === activeChatId)
 
@@ -65,7 +63,7 @@ export function App() {
       current = current.parentId ? chats.find((c) => c.id === current!.parentId) : undefined
     }
     return crumbs
-  }, [chat, chats, setActiveChat])
+  }, [chat?.parentId, chats, setActiveChat])
 
   const handleNewChat = useCallback(async (config: NewChatConfig) => {
     const dialog = useAppStore.getState().newChatDialog

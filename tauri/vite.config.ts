@@ -13,6 +13,15 @@ export default defineConfig({
       '@parlour/api-types': resolve(__dirname, '../packages/api-types/src/index.ts'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          xterm: ['@xterm/xterm', '@xterm/addon-fit', '@xterm/addon-webgl', '@xterm/addon-web-links'],
+        },
+      },
+    },
+  },
   clearScreen: false,
   server: {
     port: 1420,
