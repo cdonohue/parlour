@@ -21,14 +21,15 @@ After making changes, run `bun run check` to verify.
 ## Repo Structure
 
     chorale/
-    ├── packages/
-    │   ├── ui/                 # @chorale/ui — presentational components, primitives, styles
-    │   ├── app/                # @chorale/app — React app (store, connected wrappers, hooks)
-    │   ├── platform/           # @chorale/platform — PlatformAdapter interface + WebSocket adapter
-    │   ├── server/             # @chorale/server — all backend services (PTY, git, chat, API)
-    │   └── api-types/          # @chorale/api-types — shared WS/HTTP message types
-    ├── chorale-cli/            # Agent-facing CLI (chorale dispatch, status, hook, etc.)
-    └── tauri/                  # Tauri shell — Rust sidecar spawns @chorale/server
+    ├── apps/
+    │   ├── cli/                # @chorale/cli — Agent-facing CLI (chorale dispatch, status, hook, etc.)
+    │   └── tauri/              # @chorale/tauri — Tauri shell, Rust sidecar spawns @chorale/server
+    └── packages/
+        ├── ui/                 # @chorale/ui — presentational components, primitives, styles
+        ├── app/                # @chorale/app — React app (store, connected wrappers, hooks)
+        ├── platform/           # @chorale/platform — PlatformAdapter interface + WebSocket adapter
+        ├── server/             # @chorale/server — all backend services (PTY, git, chat, API)
+        └── api-types/          # @chorale/api-types — shared WS/HTTP message types
 
 ## Tech Stack
 
@@ -263,10 +264,10 @@ Never skip straight to coding. Getting alignment first avoids wasted work and ke
     connected/             Store-bound wrappers for @chorale/ui
     hooks/                 useShortcuts, usePrStatusPoller, useSchedules
 
-### chorale-cli/
+### apps/cli/
     src/index.ts           Agent-facing CLI (dispatch, status, hook, etc.)
 
-### tauri/
+### apps/tauri/
     src/main.tsx           Renderer entry (WS adapter + Tauri native overrides)
     src-tauri/             Rust backend (sidecar spawn, window management)
 

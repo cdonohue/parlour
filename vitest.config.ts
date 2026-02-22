@@ -14,7 +14,7 @@ export default defineConfig({
   test: {
     include: [
       'packages/*/src/**/*.test.ts',
-      'chorale-cli/src/**/*.test.ts',
+      'apps/cli/src/**/*.test.ts',
     ],
   },
 })
