@@ -1,139 +1,298 @@
-# Plan: Add Cloud Sessions to Parlour
+# Plan: Bring Your Own Cloud
 
 ## Overview
 
-Add support for cloud-hosted agent sessions alongside existing local terminal sessions. Cloud sessions run on a remote server instead of spawning a local PTY process, while sharing the same UI (terminal view, sidebar, harness tracking).
+Add a self-deployable cloud package so users can run Parlour on their own Cloudflare account. The app works locally by default — cloud is opt-in configuration. Zero changes to `@parlour/server` or the UI. The existing architecture already supports this: `createWebSocketAdapter(serverUrl)` works with any URL.
 
-## Architecture
-
-### Key Insight: The PTY Adapter Bridge
-
-The existing `PlatformAdapter.pty` interface (`create`, `write`, `resize`, `onData`, `onExit`, etc.) is already abstract enough to support cloud sessions. The strategy is to make the **server** distinguish between local and cloud sessions at the `ChatRegistry` level, while keeping the renderer/UI unchanged — it still subscribes to PTY data streams via WebSocket regardless of where the session runs.
-
-### Session Types
+## Model
 
 ```
-sessionType: 'local' | 'cloud'
+Local (default):
+  Tauri/Browser → WS → localhost:PORT → @parlour/server (local node-pty)
+
+Cloud (bring your own):
+  Browser → WS → https://parlour.user.workers.dev → CF Worker → CF Container → @parlour/server (container node-pty)
 ```
 
-- **Local (existing)**: Spawns a local PTY via `node-pty`, runs the LLM CLI process on the host machine.
-- **Cloud**: Connects to a remote session via HTTP/WebSocket. The server acts as a proxy — it creates a "virtual PTY" that bridges remote session I/O into the existing PTY data stream protocol.
+The user deploys a Cloudflare Worker + Container to their own account. The Container runs the exact same `@parlour/server` code. The Worker proxies HTTP/WS to it and serves the static frontend.
 
 ## Changes
 
-### 1. Data Model (`ChatRecord`, `Chat` types)
+### 1. Static file serving in ApiServer
 
-**Files**: `packages/server/src/chat-registry.ts`, `packages/ui/src/types.ts`, `packages/app/src/store/types.ts`
+**File**: `packages/server/src/api-server.ts`
 
-- Add `sessionType?: 'local' | 'cloud'` to `ChatRecord` (server) and `Chat` (UI)
-- Add `cloudSessionId?: string` to `ChatRecord` for tracking the remote session ID
-- Add `cloudProvider?: string` to `ChatRecord` for multi-provider support (defaults to `'claude'`)
-
-### 2. Cloud Session Manager (new module)
-
-**New file**: `packages/server/src/cloud-session-manager.ts`
-
-A new service that manages cloud session lifecycle, parallel to `PtyManager` for local sessions:
-
-- `createSession(opts)` — Creates a remote session (e.g., via Claude API), returns a session ID
-- `resumeSession(sessionId)` — Reconnects to an existing remote session
-- `sendMessage(sessionId, message)` — Sends user input to the remote session
-- `onOutput(sessionId, callback)` — Subscribes to session output stream
-- `destroySession(sessionId)` — Terminates the remote session
-- `getBuffer(sessionId)` — Returns buffered output
-
-Internally, this bridges to the PTY protocol by:
-1. Registering a "virtual PTY ID" in the PTY namespace
-2. Pumping remote output into the same `pty:data` WebSocket messages
-3. Translating `pty:write` messages into API calls to the remote session
-
-### 3. ChatRegistry Changes
-
-**File**: `packages/server/src/chat-registry.ts`
-
-Modify `createChat()` and `createChildChat()` to branch on `sessionType`:
+Add optional static file serving so the server can serve the built frontend when running in a container. Enabled via `--static-dir` CLI flag.
 
 ```
-if (sessionType === 'cloud') {
-  // 1. Create cloud session via CloudSessionManager
-  // 2. Register virtual PTY with output bridging
-  // 3. Skip local dir creation, AGENTS.md, CLI config
-} else {
-  // Existing local PTY path (unchanged)
+// In handleRequest, before API routing:
+if (staticDir && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/ws')) {
+  return serveStaticFile(staticDir, url.pathname, res)
 }
 ```
 
-Similarly for `resumeChat()`, `deleteChat()`, exit handling.
+This lets the container be fully self-contained — no separate static hosting needed.
 
-### 4. Agent Adapter for Cloud
+### 2. Browser entry point: auto-detect server URL
 
-**File**: `packages/server/src/agent-adapter.ts`
+**File**: `packages/app/dev/main.tsx`
 
-Add a `CloudClaudeAdapter` (or similar) to the adapter registry. This adapter:
-- Returns empty config generation (no local files needed)
-- Provides a cloud-specific parser for harness tracking
-- Handles cloud session resume semantics
+One-line change — if no `port` URL param, use current origin:
 
-### 5. API & WebSocket Protocol
+```typescript
+// Before:
+const port = params.get('port') ?? '3000'
+const serverUrl = `http://localhost:${port}`
 
-**Files**: `packages/api-types/src/ws-protocol.ts`, `packages/server/src/api-server.ts`
+// After:
+const port = params.get('port')
+const serverUrl = port ? `http://localhost:${port}` : window.location.origin
+```
 
-- Add `sessionType` to the `POST /api/chats` request body
-- Cloud sessions still use `pty:subscribe`/`pty:data` over WebSocket (the virtual PTY bridge makes this transparent)
-- Add `GET /api/cloud/sessions` for listing available cloud sessions to reconnect to
+This makes the same build work for both local dev (`?port=3000`) and cloud (no param → same origin).
 
-### 6. CreateChatOpts
+### 3. Cloud deployment package
 
-**File**: `packages/server/src/chat-registry.ts`
+**New directory**: `cloud/`
 
-Add `sessionType?: 'local' | 'cloud'` to `CreateChatOpts`.
+```
+cloud/
+  Dockerfile            # Builds @parlour/server + static frontend
+  wrangler.jsonc        # Cloudflare Container config
+  src/
+    index.ts            # Worker: proxies HTTP/WS to container
+  README.md             # Deploy instructions
+```
 
-### 7. UI: NewChatDialog
+#### Dockerfile
 
-**File**: `packages/ui/src/components/NewChatDialog/NewChatDialog.tsx`
+```dockerfile
+FROM node:22-slim
 
-Add a session type toggle/selector:
-- Two options: "Local Terminal" (default) and "Cloud Session"
-- When cloud is selected, the agent field could be pre-populated or hidden (cloud provider determines the agent)
-- Pass `sessionType` through `NewChatConfig` → `createNewChat()` → `adapter.chatRegistry.create()`
+# Install build tools for node-pty
+RUN apt-get update && apt-get install -y python3 make g++ git && rm -rf /var/lib/apt/lists/*
 
-### 8. UI: ChatItem Badge
+WORKDIR /app
 
-**File**: `packages/ui/src/components/ChatItem/ChatItem.tsx`
+# Copy repo and install
+COPY . .
+RUN npm install -g bun && bun install
 
-Show a small indicator (e.g., cloud icon) next to the LLM badge when `sessionType === 'cloud'`.
+# Build the static frontend
+RUN bun run build:dev --outDir /app/dist
 
-### 9. Settings
+# Expose the server port
+EXPOSE 3000
 
-**File**: `packages/ui/src/types.ts`
+# Run the server with static file serving
+CMD ["bun", "run", "packages/server/src/main.ts", "--port", "3000", "--static-dir", "/app/dist"]
+```
 
-Add cloud configuration to `Settings`:
-- `cloudApiKey?: string` — API key for cloud sessions
-- `defaultSessionType?: 'local' | 'cloud'` — Default for new chats
+#### wrangler.jsonc
 
-### 10. ParlourService Passthrough
+```jsonc
+{
+  "name": "parlour-cloud",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "containers": [
+    {
+      "class_name": "ParlourContainer",
+      "image": "./Dockerfile",
+      "instance_type": "standard-2",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "PARLOUR_CONTAINER", "class_name": "ParlourContainer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ParlourContainer"] }
+  ]
+}
+```
 
-**File**: `packages/server/src/parlour-service.ts`
+#### Worker (`src/index.ts`)
 
-Pass `sessionType` through `createChat()` and `createChildChat()` to `ChatRegistry`.
+```typescript
+import { Container } from '@cloudflare/containers'
+
+export class ParlourContainer extends Container {
+  override sleepAfter = 1800_000 // 30 min idle → sleep
+
+  defaultPort = 3000
+
+  override async onStart(): Promise<void> {
+    // Container starts @parlour/server via Dockerfile CMD
+  }
+}
+
+interface Env {
+  PARLOUR_CONTAINER: DurableObjectNamespace<ParlourContainer>
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    // Single-user: always use the same container instance
+    const id = env.PARLOUR_CONTAINER.idFromName('default')
+    const stub = env.PARLOUR_CONTAINER.get(id)
+
+    // Proxy everything (HTTP + WebSocket upgrade) to the container
+    return stub.fetch(request)
+  },
+}
+```
+
+### 4. Build script for cloud
+
+**File**: `package.json` (root)
+
+Add a `build:cloud` script:
+
+```json
+"build:cloud": "bun run build && cp -r packages/app/dev/dist cloud/static"
+```
+
+### 5. Mobile support (viewing + interaction)
+
+Make the cloud UI usable on phones — both watching agent output and typing into sessions. xterm.js already supports mobile virtual keyboards (tap terminal → soft keyboard → type → `onData` fires → `pty:write`). The input data path needs zero changes. We just need the UI to render correctly on small screens.
+
+#### 5a. Viewport meta tag
+
+**Files**: `packages/app/dev/index.html`, `tauri/index.html`
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+```
+
+Without this, phones assume 980px width and zoom out — text is illegible.
+
+#### 5b. `useIsMobile` hook
+
+**New file**: `packages/app/src/hooks/useIsMobile.ts`
+
+```typescript
+const MOBILE_BREAKPOINT = 600
+export function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(
+    () => window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`).matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
+    const handler = (e: MediaQueryListEvent) => setMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return mobile
+}
+```
+
+#### 5c. Single-column layout on mobile
+
+**File**: `packages/app/src/App.tsx`
+
+On narrow screens, skip Allotment entirely. Sidebar becomes a slide-over drawer (toggle button in top-left). Terminal takes full viewport width and height.
+
+```tsx
+if (isMobile) {
+  return (
+    <div className={styles.mobileRoot}>
+      {sidebarOpen && <Sidebar onClose={closeSidebar} />}
+      <ContentArea />
+    </div>
+  )
+}
+// else: existing Allotment layout
+```
+
+#### 5d. Mobile CSS overrides
+
+**File**: `packages/ui/src/styles/design-tokens.css` (or new mobile override)
+
+```css
+@media (max-width: 600px) {
+  :root {
+    --text-base: 16px;      /* prevent iOS auto-zoom, improve readability */
+    --text-sm: 14px;
+  }
+}
+```
+
+Touch targets: buttons get `min-height: 44px` on mobile.
+
+#### 5e. Connection status indicator
+
+**File**: `packages/ui/src/components/ConnectionStatus/ConnectionStatus.tsx` (new)
+
+On mobile networks, WebSocket drops are frequent (WiFi ↔ LTE). Show a small banner/dot when disconnected so the user isn't typing into a dead connection. The WebSocket adapter already has reconnect logic — we just need to surface the state to the UI.
+
+Wire into the existing `ws.onclose` / `ws.onopen` events in `createWebSocketAdapter`:
+
+```typescript
+// Add a connection status callback to the adapter
+onConnectionChange?: (connected: boolean) => void
+
+// In connect():
+ws.onopen = () => { onConnectionChange?.(true); ... }
+ws.onclose = () => { onConnectionChange?.(false); ... }
+```
+
+Render as a thin toast or top-bar when disconnected: "Reconnecting..." that auto-dismisses on reconnect.
 
 ## Implementation Order
 
-1. Data model changes (ChatRecord, Chat, CreateChatOpts)
-2. CloudSessionManager stub with interface
-3. ChatRegistry branching logic
-4. Virtual PTY bridge (cloud output → pty:data)
-5. API route updates
-6. UI: NewChatDialog session type selector
-7. UI: ChatItem cloud indicator
-8. Settings additions
-9. Concrete cloud provider implementation (Claude API)
-10. Harness tracking for cloud sessions
+1. Add viewport meta tags to HTML files
+2. Add `--static-dir` flag + static file serving to `ApiServer`
+3. Update browser entry point to auto-detect server URL
+4. Add `useIsMobile` hook
+5. Add mobile layout branch in `App.tsx` (single-column + drawer sidebar)
+6. Add mobile CSS overrides (font size, touch targets)
+7. Create `cloud/` directory with Dockerfile, wrangler.jsonc, Worker
+8. Test locally: build frontend, run server with `--static-dir`, verify desktop + mobile
+9. Document deploy steps in `cloud/README.md`
+
+## What Changes
+
+| Area | Change |
+|------|--------|
+| `api-server.ts` | Add optional `--static-dir` static file serving (~30 lines) |
+| `dev/main.tsx` | Auto-detect serverUrl (1 line) |
+| `index.html` (x2) | Viewport meta tag (1 line each) |
+| `App.tsx` | Mobile layout branch (~20 lines) |
+| `useIsMobile.ts` | New hook (~15 lines) |
+| `design-tokens.css` | Mobile font size overrides (~5 lines) |
+| `ws-adapter.ts` | Expose connection status callback (~5 lines) |
+| `ConnectionStatus.tsx` | New component — "Reconnecting..." banner (~20 lines) |
+| `cloud/` | New deployment package (3 new files) |
 
 ## What Stays Unchanged
 
-- **Terminal rendering**: xterm.js receives `pty:data` regardless of source
-- **Sidebar/chat list**: Same component, just shows a badge
-- **Lifecycle events**: Cloud sessions emit the same events
-- **State persistence**: Zustand store treats cloud chats the same
-- **WebSocket transport**: Virtual PTY bridge makes it transparent
+- **`@parlour/server`** — Zero logic changes. Same ChatRegistry, PtyManager, lifecycle.
+- **`@parlour/platform`** — Zero changes. WebSocket adapter already works with any URL.
+- **Local desktop experience** — Completely unaffected. Tauri and browser dev work exactly as before.
+- **Data model** — No new fields. Cloud runs the same server, same chat records.
+
+## Deploy Steps (for the user)
+
+```bash
+# 1. Clone parlour
+git clone https://github.com/cdonohue/parlour && cd parlour
+
+# 2. Deploy to your Cloudflare account
+cd cloud
+npx wrangler deploy
+
+# 3. Visit your cloud instance
+# → https://parlour-cloud.<your-subdomain>.workers.dev
+```
+
+No auth for MVP — the user controls their own Cloudflare account and can add Cloudflare Access if they want to restrict access.
+
+## Future Extensions
+
+- **Other providers**: The Dockerfile works with any container host (Fly.io, Railway, AWS ECS). Just need a different deployment config instead of wrangler.jsonc.
+- **R2 persistence**: Mount R2 bucket for workspace persistence across container sleep/wake cycles.
+- **Auth**: Add Cloudflare Access or simple bearer token middleware when needed.
