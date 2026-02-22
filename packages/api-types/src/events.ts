@@ -17,7 +17,7 @@ export type TerminalEvent =
 export type HarnessEvent =
   | { type: 'harness:tool:start'; chatId: string; tool: string }
   | { type: 'harness:tool:end'; chatId: string; tool: string }
-  | { type: 'harness:stop'; chatId: string; reason?: string }
+  | { type: 'harness:stop'; chatId: string; reason?: string; lastMessage?: string }
   | { type: 'harness:thinking'; chatId: string }
   | { type: 'harness:writing'; chatId: string }
   | { type: 'harness:waiting'; chatId: string }

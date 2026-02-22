@@ -67,7 +67,7 @@ export class ParlourService {
     opts?: { parentId?: string; llm?: string; project?: string; branch?: string },
   ): Promise<{ chatId: string; chatDir: string }> {
     const chatOpts = {
-      name: deriveShortTitle(prompt),
+      name: 'New Chat',
       llmCommand: opts?.llm ?? this.settingsGetter().llmCommand,
       prompt,
       background: true,
@@ -242,7 +242,7 @@ export class ParlourService {
     } else if (event === 'post-tool-use' && data?.tool) {
       lifecycle.emit({ type: 'harness:tool:end', chatId, tool: data.tool as string })
     } else if (event === 'stop') {
-      lifecycle.emit({ type: 'harness:stop', chatId, reason: data?.reason as string | undefined })
+      lifecycle.emit({ type: 'harness:stop', chatId, reason: data?.reason as string | undefined, lastMessage: data?.last_assistant_message as string | undefined })
     }
   }
 

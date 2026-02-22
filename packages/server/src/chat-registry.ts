@@ -2,8 +2,7 @@ import { join, basename, resolve } from 'node:path'
 import { readFile, writeFile, mkdir, rm, symlink, readdir, stat } from 'node:fs/promises'
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { spawn } from 'node:child_process'
 import { PtyManager } from './pty-manager'
 import { GitService } from './git-service'
 import { PARLOUR_DIR, BARE_DIR, PROJECT_SETUP_DIR, createChatDir, writeAgentsMd, scanProjects, copySkillsToChat, ensureGlobalSkills } from './parlour-dirs'
@@ -16,7 +15,6 @@ import { lifecycle } from './lifecycle'
 import type { HarnessEvent } from './lifecycle'
 import { HarnessTracker } from './harness-tracker'
 
-const execAsync = promisify(execFile)
 const log = rootLogger.child({ service: 'ChatRegistry' })
 
 type ChatStatus = 'active' | 'idle' | 'done' | 'error'
@@ -32,6 +30,7 @@ interface ChatRecord {
   pinnedAt: number | null
   parentId?: string
   llmCommand?: string
+  prompt?: string
   projects?: ProjectInfo[]
 }
 
@@ -49,6 +48,7 @@ export class ChatRegistry {
   private chats: ChatRecord[] = []
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private harnessTrackers = new Map<string, HarnessTracker>()
+  private autoTitled = new Set<string>()
   private harnessUnsubs = new Map<string, () => void>()
   private ptyManager: PtyManager
   private settingsGetter: () => { llmCommand: string; maxChatDepth: number; projectRoots: string[] }
@@ -237,6 +237,7 @@ export class ChatRegistry {
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
+    this.capturePromptFromInput(chatId, ptyId, opts.prompt)
 
     if (opts.prompt && !resolveAdapter(llmCommand).supportsPromptArgs) {
       this.pendingPrompt.add(chatId)
@@ -262,6 +263,7 @@ export class ChatRegistry {
       lastActiveAt: now,
       pinnedAt: null,
       llmCommand,
+      prompt: opts.prompt,
       projects,
     }
 
@@ -327,6 +329,7 @@ export class ChatRegistry {
     this.registerExitHandler(chatId, ptyId, opts.onExit)
     this.registerActivityHandler(chatId, ptyId)
     this.attachHarnessTracking(chatId, ptyId, llmCommand)
+    this.capturePromptFromInput(chatId, ptyId, opts.prompt)
 
     if (opts.prompt && !resolveAdapter(llmCommand).supportsPromptArgs) {
       this.pendingPrompt.add(chatId)
@@ -353,6 +356,7 @@ export class ChatRegistry {
       pinnedAt: null,
       parentId,
       llmCommand,
+      prompt: opts.prompt,
       projects,
     }
 
@@ -444,9 +448,29 @@ export class ChatRegistry {
     const buffer = this.ptyManager.getBuffer(chat.ptyId)
     if (!buffer) return
 
-    const tail = buffer.slice(-4000)
+    const stripped = buffer
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+      .replace(/\x1b\][^\x07]*\x07/g, '')
+      .replace(/\x1b[()][A-Z0-9]/g, '')
+      .replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '')
+      .replace(/\r\n?/g, '\n')
+    const tail = stripped.slice(-4000)
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
     const title = await this.generateTitle(tail, llmCommand)
+    if (title) {
+      this.updateChat(chatId, { name: title })
+    }
+  }
+
+  private async autoRetitle(chatId: string, lastMessage?: string): Promise<void> {
+    const chat = this.getChat(chatId)
+    if (!chat?.prompt) return
+
+    let text = `User: ${chat.prompt}`
+    if (lastMessage) text += `\nAssistant: ${lastMessage}`
+
+    const llmCommand = this.resolveLlmCommand(chat.llmCommand)
+    const title = await this.generateTitle(text, llmCommand)
     if (title) {
       this.updateChat(chatId, { name: title })
     }
@@ -560,9 +584,25 @@ export class ChatRegistry {
       const he = event as HarnessEvent
       if ('chatId' in he && he.chatId === chatId) {
         tracker.handleEvent(he)
+        if (he.type === 'harness:stop' && !this.autoTitled.has(chatId)) {
+          this.autoTitled.add(chatId)
+          this.autoRetitle(chatId, he.lastMessage).catch((err) => {
+            log.error('Auto-retitle failed', { chatId, error: String(err) })
+          })
+        }
       }
     })
     this.harnessUnsubs.set(chatId, unsub)
+  }
+
+  private capturePromptFromInput(chatId: string, ptyId: string, existingPrompt?: string): void {
+    if (existingPrompt) return
+    this.ptyManager.onFirstInput(ptyId, (_id, input) => {
+      const chat = this.getChat(chatId)
+      if (chat && !chat.prompt) {
+        this.updateChatInternal(chatId, { prompt: input })
+      }
+    })
   }
 
   private updateChatInternal(id: string, partial: Partial<ChatRecord>): void {
@@ -684,36 +724,67 @@ export class ChatRegistry {
     return ['/bin/sh', '-c', `exec ${llmCommand} ${escaped.join(' ')}`]
   }
 
-  private async summarizeContext(ptyId: string): Promise<string | null> {
+  private summarizeContext(ptyId: string): Promise<string | null> {
     const buffer = this.ptyManager.getBuffer(ptyId)
     const tail = buffer.length > 8000 ? buffer.slice(-8000) : buffer
-    if (!tail.trim()) return null
-    try {
-      const { stdout } = await execAsync('claude', [
-        '-p', `Summarize the following terminal session into a concise context paragraph for a sub-agent. Focus on: what task is being worked on, key decisions made, current state. No preamble.\n\n${tail}`,
-        '--max-turns', '0',
-      ], { timeout: 30000 })
-      return stdout.trim() || null
-    } catch {
-      return null
-    }
+    if (!tail.trim()) return Promise.resolve(null)
+
+    const env = { ...process.env }
+    delete env.CLAUDECODE
+
+    return new Promise((resolve) => {
+      const proc = spawn('claude', ['-p'], { env, stdio: ['pipe', 'pipe', 'pipe'] })
+      let stdout = ''
+      let timer: ReturnType<typeof setTimeout> | null = null
+
+      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+      proc.on('close', () => {
+        if (timer) clearTimeout(timer)
+        resolve(stdout.trim() || null)
+      })
+      proc.on('error', () => {
+        if (timer) clearTimeout(timer)
+        resolve(null)
+      })
+
+      timer = setTimeout(() => { proc.kill(); resolve(null) }, 30000)
+
+      proc.stdin.write(`Summarize the following terminal session into a concise context paragraph for a sub-agent. Focus on: what task is being worked on, key decisions made, current state. No preamble.\n\n${tail}`)
+      proc.stdin.end()
+    })
   }
 
-  private async generateTitle(text: string, llmCommand: string): Promise<string | null> {
+  private generateTitle(text: string, llmCommand: string): Promise<string | null> {
     const cmd = llmCommand || 'claude'
-    try {
-      const { stdout } = await execAsync(cmd, [
-        '-p', `Give a 3-5 word title for this chat. No quotes, no punctuation, no prefix. Just the title words:\n\n${text}`,
-        '--max-turns', '0',
-      ], { timeout: 15000 })
-      const title = stdout.trim()
-        .replace(/^["'`\-–—*#•>\s]+/, '')
-        .replace(/["'`\s]+$/, '')
-        .replace(/\b\w/g, (c) => c.toUpperCase())
-      return title || null
-    } catch {
-      return null
-    }
+    const env = { ...process.env }
+    delete env.CLAUDECODE
+
+    return new Promise((resolve) => {
+      const proc = spawn(cmd, ['-p'], { env, stdio: ['pipe', 'pipe', 'pipe'] })
+      let stdout = ''
+      let timer: ReturnType<typeof setTimeout> | null = null
+
+      proc.stdout.on('data', (d: Buffer) => { stdout += d.toString() })
+      proc.on('close', () => {
+        if (timer) clearTimeout(timer)
+        const title = stdout.trim()
+          .replace(/^["'`\-–—*#•>\s]+/, '')
+          .replace(/["'`\s]+$/, '')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+        resolve(title || null)
+      })
+      proc.on('error', (err) => {
+        if (timer) clearTimeout(timer)
+        log.error('generateTitle failed', { error: String(err) })
+        resolve(null)
+      })
+
+      timer = setTimeout(() => { proc.kill(); resolve(null) }, 30000)
+
+      const prompt = `Below is a terminal session between a user and an AI assistant. Give a 3-5 word title describing the user's task. Ignore setup banners and file paths. No quotes, no punctuation. Just the title words:\n\n${text}`
+      proc.stdin.write(prompt)
+      proc.stdin.end()
+    })
   }
 
   flushPersist(): void {

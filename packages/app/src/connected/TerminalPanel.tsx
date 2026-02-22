@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TerminalPanel as TerminalPanelUI, getTerminalTheme, deriveShortTitle } from '@parlour/ui'
+import { TerminalPanel as TerminalPanelUI, getTerminalTheme } from '@parlour/ui'
 import { usePlatform } from '@parlour/platform'
 import { useAppStore } from '../store/app-store'
 
@@ -27,28 +27,12 @@ export function TerminalPanel({ ptyId, active }: Props) {
   const platform = usePlatform()
   const fontSize = useAppStore((s) => s.settings.terminalFontSize)
   const fontFamily = useAppStore((s) => s.settings.terminalFontFamily)
-  const updateChat = useAppStore((s) => s.updateChat)
-
   const resolvedMode = useResolvedTheme()
   const terminalTheme = useMemo(() => getTerminalTheme(resolvedMode), [resolvedMode])
 
   useEffect(() => {
     platform.theme.setResolved(resolvedMode)
   }, [resolvedMode, platform])
-
-  useEffect(() => {
-    return platform.pty.onFirstInput(ptyId, (input) => {
-      const s = useAppStore.getState()
-      const chat = s.chats.find((c) => c.ptyId === ptyId)
-      if (!chat || chat.name !== 'New Chat') return
-
-      updateChat(chat.id, { name: deriveShortTitle(input) })
-
-      platform.chat.generateTitle(input).then((title) => {
-        if (title) updateChat(chat.id, { name: title })
-      })
-    })
-  }, [ptyId, updateChat, platform])
 
   return (
     <TerminalPanelUI
