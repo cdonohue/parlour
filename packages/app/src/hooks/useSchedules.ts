@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import type { Schedule } from '@parlour/ui'
-import { usePlatform } from '@parlour/platform'
+import type { Schedule } from '@chorale/ui'
+import { usePlatform } from '@chorale/platform'
 
 export function useSchedules(): Schedule[] {
   const platform = usePlatform()

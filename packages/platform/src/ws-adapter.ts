@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerMessage } from '@parlour/api-types'
+import type { ClientMessage, ServerMessage } from '@chorale/api-types'
 import type { PlatformAdapter } from './adapter'
 
 type Unsubscribe = () => void
@@ -197,9 +197,9 @@ export function createWebSocketAdapter(
       selectDirectory: () => Promise.resolve(null),
       addProjectPath: () => Promise.resolve(),
       getDataPath: () =>
-        api<{ path: string }>('GET', '/app/parlour-path').then((r) => r.path),
-      getParlourPath: () =>
-        api<{ path: string }>('GET', '/app/parlour-path').then((r) => r.path),
+        api<{ path: string }>('GET', '/app/chorale-path').then((r) => r.path),
+      getChoralePath: () =>
+        api<{ path: string }>('GET', '/app/chorale-path').then((r) => r.path),
       discoverOpeners: () => api('GET', '/app/openers'),
       openIn: (openerId, dirPath) => api('POST', '/app/open-in', { openerId, dirPath }),
     },

@@ -1,6 +1,6 @@
-export const ParlourPlugin = async ({}) => {
-  const chatId = process.env.PARLOUR_CHAT_ID
-  const portFile = `${process.env.HOME}/.parlour/.mcp-port`
+export const ChoralePlugin = async ({}) => {
+  const chatId = process.env.CHORALE_CHAT_ID
+  const portFile = `${process.env.HOME}/.chorale/.mcp-port`
 
   async function notify(event, data) {
     if (!chatId) return

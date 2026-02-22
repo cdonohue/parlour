@@ -4,27 +4,27 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 
-const PARLOUR_DIR = join(homedir(), '.parlour')
-const DEBUG = process.env.PARLOUR_DEBUG === '1'
+const CHORALE_DIR = join(homedir(), '.chorale')
+const DEBUG = process.env.CHORALE_DEBUG === '1'
 
 function debug(msg: string): void {
-  if (DEBUG) process.stderr.write(`[parlour] ${msg}\n`)
+  if (DEBUG) process.stderr.write(`[chorale] ${msg}\n`)
 }
 
 function resolveBaseUrl(): string {
-  if (process.env.PARLOUR_API_URL) return process.env.PARLOUR_API_URL
+  if (process.env.CHORALE_API_URL) return process.env.CHORALE_API_URL
   try {
-    const port = readFileSync(join(PARLOUR_DIR, '.mcp-port'), 'utf-8').trim()
+    const port = readFileSync(join(CHORALE_DIR, '.mcp-port'), 'utf-8').trim()
     return `http://localhost:${port}`
   } catch {
-    process.stderr.write('Error: Parlour not running (no .mcp-port file)\n')
+    process.stderr.write('Error: Chorale not running (no .mcp-port file)\n')
     process.exit(1)
   }
 }
 
 const BASE_URL = resolveBaseUrl()
-const CHAT_ID = process.env.PARLOUR_CHAT_ID ?? ''
-const PARENT_ID = process.env.PARLOUR_PARENT_CHAT_ID
+const CHAT_ID = process.env.CHORALE_CHAT_ID ?? ''
+const PARENT_ID = process.env.CHORALE_PARENT_CHAT_ID
 
 async function api(path: string, body?: Record<string, unknown>): Promise<unknown> {
   const url = `${BASE_URL}/api${path}?caller=${CHAT_ID}`
@@ -46,7 +46,7 @@ async function api(path: string, body?: Record<string, unknown>): Promise<unknow
 }
 
 function usage(): void {
-  process.stdout.write(`Usage: parlour <command> [args]
+  process.stdout.write(`Usage: chorale <command> [args]
 
 Commands:
   dispatch <prompt> [flags]      Spawn a chat
@@ -67,16 +67,16 @@ Commands:
   hook <event> [--tool <name>]   Emit harness lifecycle event
 
 Environment:
-  PARLOUR_CHAT_ID      Set automatically per chat
-  PARLOUR_API_URL      Override API base URL (for cloud)
-  PARLOUR_DEBUG=1      Debug logging to stderr
+  CHORALE_CHAT_ID      Set automatically per chat
+  CHORALE_API_URL      Override API base URL (for cloud)
+  CHORALE_DEBUG=1      Debug logging to stderr
 `)
 }
 
 async function dispatch(args: string[]): Promise<void> {
   const prompt = args.join(' ')
   if (!prompt) {
-    process.stderr.write('Usage: parlour dispatch <prompt>\n')
+    process.stderr.write('Usage: chorale dispatch <prompt>\n')
     process.exit(1)
   }
 
@@ -135,7 +135,7 @@ async function readScreen(args: string[]): Promise<void> {
   const linesFlag = extractFlag(args, '--lines')
   const chatId = args[0] || CHAT_ID
   if (!chatId) {
-    process.stderr.write('Usage: parlour read-screen [chatId] [--lines N]\n')
+    process.stderr.write('Usage: chorale read-screen [chatId] [--lines N]\n')
     process.exit(1)
   }
   const qs = new URLSearchParams({ caller: CHAT_ID })
@@ -159,8 +159,8 @@ async function listChildren(): Promise<void> {
 async function report(args: string[]): Promise<void> {
   const message = args.join(' ')
   if (!message || !PARENT_ID) {
-    if (!PARENT_ID) process.stderr.write('Error: not a child chat (no PARLOUR_PARENT_CHAT_ID)\n')
-    else process.stderr.write('Usage: parlour report <message>\n')
+    if (!PARENT_ID) process.stderr.write('Error: not a child chat (no CHORALE_PARENT_CHAT_ID)\n')
+    else process.stderr.write('Usage: chorale report <message>\n')
     process.exit(1)
   }
 
@@ -172,7 +172,7 @@ async function send(args: string[]): Promise<void> {
   const targetId = args[0]
   const message = args.slice(1).join(' ')
   if (!targetId || !message) {
-    process.stderr.write('Usage: parlour send <chatId> <message>\n')
+    process.stderr.write('Usage: chorale send <chatId> <message>\n')
     process.exit(1)
   }
 
@@ -190,14 +190,14 @@ async function schedule(args: string[]): Promise<void> {
   }
 
   if (sub === 'cancel') {
-    if (!args[1]) { process.stderr.write('Usage: parlour schedule cancel <id>\n'); process.exit(1) }
+    if (!args[1]) { process.stderr.write('Usage: chorale schedule cancel <id>\n'); process.exit(1) }
     await api(`/schedules/${args[1]}`, { action: 'cancel' })
     process.stdout.write(`Cancelled ${args[1]}\n`)
     return
   }
 
   if (sub === 'run') {
-    if (!args[1]) { process.stderr.write('Usage: parlour schedule run <id>\n'); process.exit(1) }
+    if (!args[1]) { process.stderr.write('Usage: chorale schedule run <id>\n'); process.exit(1) }
     await api(`/schedules/${args[1]}/run`, {})
     process.stdout.write(`Triggered ${args[1]}\n`)
     return
@@ -215,7 +215,7 @@ async function schedule(args: string[]): Promise<void> {
   const at = atIdx >= 0 ? args[atIdx + 1] : undefined
 
   if (!prompt || (!cron && !at)) {
-    process.stderr.write('Usage: parlour schedule <prompt> --cron <expr> | --at <datetime>\n')
+    process.stderr.write('Usage: chorale schedule <prompt> --cron <expr> | --at <datetime>\n')
     process.exit(1)
   }
 
@@ -236,19 +236,19 @@ async function project(args: string[]): Promise<void> {
     const pathOrUrl = args[1]
     const branch = extractFlag(args.slice(2), '--branch')
     const base = extractFlag(args.slice(2), '--base')
-    if (!pathOrUrl) { process.stderr.write('Usage: parlour project open <path-or-url>\n'); process.exit(1) }
+    if (!pathOrUrl) { process.stderr.write('Usage: chorale project open <path-or-url>\n'); process.exit(1) }
     const result = await api('/projects/open', { chat_id: CHAT_ID, path_or_url: pathOrUrl, branch, base })
     process.stdout.write(JSON.stringify(result, null, 2) + '\n')
     return
   }
 
-  process.stderr.write('Usage: parlour project [list|open]\n')
+  process.stderr.write('Usage: chorale project [list|open]\n')
   process.exit(1)
 }
 
 async function hook(args: string[]): Promise<void> {
   const event = args[0]
-  if (!event) { process.stderr.write('Usage: parlour hook <event> [--tool <name>]\n'); process.exit(1) }
+  if (!event) { process.stderr.write('Usage: chorale hook <event> [--tool <name>]\n'); process.exit(1) }
 
   const tool = extractFlag(args.slice(1), '--tool')
   const data: Record<string, unknown> = {}
@@ -291,6 +291,6 @@ switch (command) {
   case 'hook': await hook(args); break
   case '--help': case '-h': case undefined: usage(); break
   default:
-    process.stderr.write(`Unknown command: ${command}\nRun 'parlour --help' for usage.\n`)
+    process.stderr.write(`Unknown command: ${command}\nRun 'chorale --help' for usage.\n`)
     process.exit(1)
 }

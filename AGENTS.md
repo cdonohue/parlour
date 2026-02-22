@@ -1,4 +1,4 @@
-# Parlour
+# Chorale
 
 App for running AI agents in parallel with integrated terminal, git, and automation scheduling.
 
@@ -14,21 +14,21 @@ All from repo root:
     bun run build       # Production build
     bun run test        # All test layers (unit + integration + e2e)
     bun run test:e2e    # Playwright e2e tests
-    bun run storybook   # @parlour/ui component dev
+    bun run storybook   # @chorale/ui component dev
 
 After making changes, run `bun run check` to verify.
 
 ## Repo Structure
 
-    parlour/
+    chorale/
     ├── packages/
-    │   ├── ui/                 # @parlour/ui — presentational components, primitives, styles
-    │   ├── app/                # @parlour/app — React app (store, connected wrappers, hooks)
-    │   ├── platform/           # @parlour/platform — PlatformAdapter interface + WebSocket adapter
-    │   ├── server/             # @parlour/server — all backend services (PTY, git, chat, API)
-    │   └── api-types/          # @parlour/api-types — shared WS/HTTP message types
-    ├── parlour-cli/            # Agent-facing CLI (parlour dispatch, status, hook, etc.)
-    └── tauri/                  # Tauri shell — Rust sidecar spawns @parlour/server
+    │   ├── ui/                 # @chorale/ui — presentational components, primitives, styles
+    │   ├── app/                # @chorale/app — React app (store, connected wrappers, hooks)
+    │   ├── platform/           # @chorale/platform — PlatformAdapter interface + WebSocket adapter
+    │   ├── server/             # @chorale/server — all backend services (PTY, git, chat, API)
+    │   └── api-types/          # @chorale/api-types — shared WS/HTTP message types
+    ├── chorale-cli/            # Agent-facing CLI (chorale dispatch, status, hook, etc.)
+    └── tauri/                  # Tauri shell — Rust sidecar spawns @chorale/server
 
 ## Tech Stack
 
@@ -40,7 +40,7 @@ Shells: Tauri (production, Rust sidecar) · Browser (standalone server)
 
 ### Multi-Target Model
 
-All targets share the same `@parlour/app` React app and `@parlour/server` backend. Each shell provides a thin native layer:
+All targets share the same `@chorale/app` React app and `@chorale/server` backend. Each shell provides a thin native layer:
 
 | Target | Server | Native APIs | Status |
 |--------|--------|-------------|--------|
@@ -49,25 +49,25 @@ All targets share the same `@parlour/app` React app and `@parlour/server` backen
 
 ### Connection Pattern
 
-All targets use `WebSocketPlatformAdapter` from `@parlour/platform`:
+All targets use `WebSocketPlatformAdapter` from `@chorale/platform`:
 
 1. Server starts (sidecar or standalone) → random port
 2. Shell passes port to renderer (Tauri: `invoke`, Browser: URL param)
 3. Renderer creates WS adapter → connects to `ws://localhost:{port}/ws`
 4. Shell overrides native methods on adapter (selectDirectory, openExternal, theme)
 
-### Server Services (`@parlour/server`)
+### Server Services (`@chorale/server`)
 
 - **ChatRegistry** — chat lifecycle (create, resume, delete, retitle), PTY exit listeners, harness tracking, state push via WebSocket
 - **PtyManager** — node-pty spawn, output buffer (200k cap), OSC title extraction
 - **GitService** — all git ops via execFileAsync('git', ...)
 - **ForgeService** — `gh` CLI for PR status, 60s cache, silent degradation
 - **FileService** — file read/write
-- **ApiServer** — HTTP REST API + WebSocket server, delegates to ParlourService
-- **ParlourService** — orchestration logic (dispatch, status, schedules, hooks)
+- **ApiServer** — HTTP REST API + WebSocket server, delegates to ChoraleService
+- **ChoraleService** — orchestration logic (dispatch, status, schedules, hooks)
 - **TaskScheduler** — croner cron/one-time jobs, delegates to ChatRegistry
 - **ThemeManager** — theme mode + resolved state, pushes via WebSocket
-- **Logger** — structured JSON lines to `~/.parlour/logs/parlour.jsonl`, child loggers per service
+- **Logger** — structured JSON lines to `~/.chorale/logs/chorale.jsonl`, child loggers per service
 - **Lifecycle** — typed event emitter for terminal, harness, and CLI events
 - **HarnessTracker** — per-chat status state machine (idle/thinking/writing/tool-use/waiting/done/error)
 
@@ -84,27 +84,27 @@ The terminal is the primary interaction surface — no file editor, no tabs.
 ### State
 
 Split ownership:
-- **ChatRegistry** (server) owns chats + links → persisted to `~/.parlour/chat-registry.json` (debounced 500ms)
-- **Zustand store** (renderer) owns repos, tasks, runs, settings, navigation → persisted to `parlour-state.json`
+- **ChatRegistry** (server) owns chats + links → persisted to `~/.chorale/chat-registry.json` (debounced 500ms)
+- **Zustand store** (renderer) owns repos, tasks, runs, settings, navigation → persisted to `chorale-state.json`
 
 Push pattern: ChatRegistry mutates → persist → push `{chats, links}` to all connected WebSocket clients.
 Renderer receives pushes into Zustand. Optimistic local updates for UI-only fields (pin, active, unread).
 On startup, ChatRegistry reconciles PTYs: dead PTYs → status failed, live PTYs → re-register exit listeners.
 window.__store exposed in dev for testing.
 
-### REST API + `parlour` CLI
+### REST API + `chorale` CLI
 
-HTTP on random localhost port → `~/.parlour/.mcp-port`.
+HTTP on random localhost port → `~/.chorale/.mcp-port`.
 
-Agents interact via `parlour` CLI (reads port file, uses `PARLOUR_CHAT_ID` from env):
+Agents interact via `chorale` CLI (reads port file, uses `CHORALE_CHAT_ID` from env):
 
-    parlour dispatch "task description"       # spawn child chat
-    parlour status [chatId]                   # chat status + harness state
-    parlour list-children                     # list child chats
-    parlour report "message"                  # send message to parent PTY
-    parlour schedule list|cancel|run          # schedule management
-    parlour project list|open                 # project management
-    parlour hook <event> [--tool <name>]      # emit harness lifecycle event
+    chorale dispatch "task description"       # spawn child chat
+    chorale status [chatId]                   # chat status + harness state
+    chorale list-children                     # list child chats
+    chorale report "message"                  # send message to parent PTY
+    chorale schedule list|cancel|run          # schedule management
+    chorale project list|open                 # project management
+    chorale hook <event> [--tool <name>]      # emit harness lifecycle event
 
 API routes (all under `/api/`):
 
@@ -147,7 +147,7 @@ Subscribe with `lifecycle.on('*', handler)` for all events, or prefix like `life
 ### Chat Lifecycle
 
 All lifecycle managed by ChatRegistry in server:
-1. Create dir (~/.parlour/chats/{id}/)
+1. Create dir (~/.chorale/chats/{id}/)
 2. Process attach (worktree create/clone, symlinks)
 3. Write AGENTS.md + CLI config (hooks for Claude, settings for others)
 4. Spawn PTY: `/bin/sh -c exec {llmCommand}`
@@ -163,7 +163,7 @@ Max depth configurable (default: 2).
 
 Two complementary mechanisms per chat:
 
-**CLI hooks** (Claude only): `.claude/settings.local.json` includes PreToolUse/PostToolUse/Stop hooks that call `parlour hook <event>`. Structured events — no parsing needed.
+**CLI hooks** (Claude only): `.claude/settings.local.json` includes PreToolUse/PostToolUse/Stop hooks that call `chorale hook <event>`. Structured events — no parsing needed.
 
 **Output parser** (all CLIs): `HarnessParser.feed()` on PTY output stream. `ClaudeOutputParser` detects tool boxes (╭─ ╰─), thinking spinners, cost summary. `GenericOutputParser` uses idle/burst heuristics.
 
@@ -189,30 +189,30 @@ Two layers provide continuity when resuming a chat:
 - Codex: `resume --last` (scoped to cwd)
 - OpenCode: `--continue` (last session in cwd)
 - Custom/unknown CLIs: fresh start (no resume args)
-- No session ID tracking needed — each chat runs in a unique `~/.parlour/chats/{uuid}/` dir, so "resume last" always picks the right session
+- No session ID tracking needed — each chat runs in a unique `~/.chorale/chats/{uuid}/` dir, so "resume last" always picks the right session
 
 Adding a new CLI: add an entry to `CLI_REGISTRY` in `cli-detect.ts` with `resumeWithId` and `resumeLast`.
 
 ## Design Principle: UI/CLI Parity
 
-Every action a human can perform through the UI must also be available to agents via `parlour` CLI.
+Every action a human can perform through the UI must also be available to agents via `chorale` CLI.
 Every piece of context visible to the user must be accessible to agents programmatically.
 When adding features, implement both the UI surface and the corresponding CLI command / API route together.
 
 ## Observability
 
-Structured logs to `~/.parlour/logs/parlour.jsonl` (JSON lines, rotated at 5MB).
+Structured logs to `~/.chorale/logs/chorale.jsonl` (JSON lines, rotated at 5MB).
 
 All lifecycle events logged via wildcard subscriber. Services use child loggers: `logger.child({ service: 'ChatRegistry' })`.
 
 Inspect logs:
-- `tail -f ~/.parlour/logs/parlour.jsonl | jq` — live stream
-- `jq 'select(.type | startswith("harness"))' ~/.parlour/logs/parlour.jsonl` — filter harness
-- `PARLOUR_LOG_LEVEL=debug bun run dev` — verbose console output
+- `tail -f ~/.chorale/logs/chorale.jsonl | jq` — live stream
+- `jq 'select(.type | startswith("harness"))' ~/.chorale/logs/chorale.jsonl` — filter harness
+- `CHORALE_LOG_LEVEL=debug bun run dev` — verbose console output
 
 Agent introspection:
-- `parlour status <chatId>` — chat status + harness state + last 4KB output
-- `parlour list-children` — child chat statuses
+- `chorale status <chatId>` — chat status + harness state + last 4KB output
+- `chorale list-children` — child chat statuses
 
 ## Implementation Workflow (mandatory)
 
@@ -238,7 +238,7 @@ Never skip straight to coding. Getting alignment first avoids wasted work and ke
     main.ts                Standalone server entry (Tauri sidecar + browser dev)
     index.ts               Public exports
     api-server.ts          HTTP REST API + WebSocket server
-    parlour-service.ts     Orchestration logic (dispatch, status, schedules, hooks)
+    chorale-service.ts     Orchestration logic (dispatch, status, schedules, hooks)
     chat-registry.ts       Chat lifecycle, state push, harness tracking
     pty-manager.ts         PTY lifecycle, buffer, title extraction
     git-service.ts         Git ops (worktree, status, diff, branch, commit)
@@ -251,19 +251,19 @@ Never skip straight to coding. Getting alignment first avoids wasted work and ke
     harness-parser.ts      PTY output parsers (ClaudeOutputParser, GenericOutputParser)
     harness-tracker.ts     Per-chat harness status state machine
     cli-config.ts          Per-CLI config generation (hooks, MCP, settings)
-    config-service.ts      ~/.parlour/config.json (custom LLMs, global MCP servers)
+    config-service.ts      ~/.chorale/config.json (custom LLMs, global MCP servers)
     cli-detect.ts          CLI type detection + resume flags registry
     claude-config.ts       ~/.claude.json trust, settings
-    parlour-dirs.ts        Chat dir creation, AGENTS.md gen, project scanning
+    chorale-dirs.ts        Chat dir creation, AGENTS.md gen, project scanning
 
 ### packages/app/src/
     App.tsx                Root component, 2-pane Allotment
     store/app-store.ts     Zustand store
     store/types.ts         AppState interface
-    connected/             Store-bound wrappers for @parlour/ui
+    connected/             Store-bound wrappers for @chorale/ui
     hooks/                 useShortcuts, usePrStatusPoller, useSchedules
 
-### parlour-cli/
+### chorale-cli/
     src/index.ts           Agent-facing CLI (dispatch, status, hook, etc.)
 
 ### tauri/

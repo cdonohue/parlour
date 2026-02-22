@@ -1,5 +1,5 @@
 {
-  "name": "@parlour/tauri",
+  "name": "@chorale/tauri",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -10,9 +10,9 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@parlour/app": "workspace:*",
-    "@parlour/platform": "workspace:*",
-    "@parlour/ui": "workspace:*",
+    "@chorale/app": "workspace:*",
+    "@chorale/platform": "workspace:*",
+    "@chorale/ui": "workspace:*",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-opener": "^2.0.0",

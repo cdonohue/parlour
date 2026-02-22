@@ -38,8 +38,8 @@ describe('CLI Integration', () => {
   }, 10_000)
 
   const env = () => ({
-    PARLOUR_API_URL: server.baseUrl,
-    PARLOUR_CHAT_ID: chatId,
+    CHORALE_API_URL: server.baseUrl,
+    CHORALE_CHAT_ID: chatId,
   })
 
   it('status <chatId> returns JSON with status', async () => {

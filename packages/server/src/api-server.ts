@@ -2,18 +2,18 @@ import { createServer, type Server as HttpServer } from 'node:http'
 import { join } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { WebSocketServer, WebSocket } from 'ws'
-import { PARLOUR_DIR } from './parlour-dirs'
+import { CHORALE_DIR } from './chorale-dirs'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
-import { ParlourService } from './parlour-service'
+import { ChoraleService } from './chorale-service'
 import type { ChatRegistry } from './chat-registry'
 import type { TaskScheduler } from './task-scheduler'
-import type { ClientMessage, ServerMessage } from '@parlour/api-types'
+import type { ClientMessage, ServerMessage } from '@chorale/api-types'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 
 const log = rootLogger.child({ service: 'ApiServer' })
-const PORT_FILE = join(PARLOUR_DIR, '.mcp-port')
+const PORT_FILE = join(CHORALE_DIR, '.mcp-port')
 
 interface WsClient {
   ws: WebSocket
@@ -30,7 +30,7 @@ export class ApiServer {
   private themeUnsub: (() => void) | null = null
 
   constructor(
-    private service: ParlourService,
+    private service: ChoraleService,
     private chatRegistry: ChatRegistry,
     private taskScheduler: TaskScheduler,
   ) {}
@@ -172,7 +172,7 @@ export class ApiServer {
       if (method === 'PATCH' && path.match(/^\/schedules\/[^/]+$/)) {
         const id = this.extractParam(path, 2)
         const body = await this.readBody(req)
-        this.service.updateSchedule(id, body as Parameters<ParlourService['updateSchedule']>[1])
+        this.service.updateSchedule(id, body as Parameters<ChoraleService['updateSchedule']>[1])
         this.json(res, { ok: true })
         return
       }
@@ -312,7 +312,7 @@ export class ApiServer {
 
       if (method === 'POST' && path === '/chats') {
         const body = await this.readBody(req)
-        const result = await this.service.createChat(body as Parameters<ParlourService['createChat']>[0])
+        const result = await this.service.createChat(body as Parameters<ChoraleService['createChat']>[0])
         this.json(res, result)
         return
       }
@@ -320,7 +320,7 @@ export class ApiServer {
       if (method === 'POST' && path.match(/^\/chats\/[^/]+\/child$/)) {
         const parentId = this.extractParam(path, 2)
         const body = await this.readBody(req)
-        const result = await this.service.createChildChat(parentId, body as Parameters<ParlourService['createChildChat']>[1])
+        const result = await this.service.createChildChat(parentId, body as Parameters<ChoraleService['createChildChat']>[1])
         this.json(res, result)
         return
       }
@@ -503,8 +503,8 @@ export class ApiServer {
 
       // ── App routes ──
 
-      if (method === 'GET' && path === '/app/parlour-path') {
-        this.json(res, { path: this.service.getParlourPath() })
+      if (method === 'GET' && path === '/app/chorale-path') {
+        this.json(res, { path: this.service.getChoralePath() })
         return
       }
 
@@ -768,7 +768,7 @@ export class ApiServer {
   // ── Server lifecycle ──
 
   async start(requestedPort = 0): Promise<number> {
-    await mkdir(PARLOUR_DIR, { recursive: true })
+    await mkdir(CHORALE_DIR, { recursive: true })
 
     this.wss = new WebSocketServer({ noServer: true })
 

@@ -3,7 +3,7 @@ import { mkdir, writeFile, readdir, unlink, chmod } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { PARLOUR_DIR } from './parlour-dirs'
+import { CHORALE_DIR } from './chorale-dirs'
 import { getAdapterNames } from './agent-adapter'
 import { getCustomLlms } from './config-service'
 import { logger as rootLogger } from './logger'
@@ -11,50 +11,50 @@ import { logger as rootLogger } from './logger'
 const execAsync = promisify(execFile)
 const log = rootLogger.child({ service: 'WrapperManager' })
 
-export const BIN_DIR = join(PARLOUR_DIR, 'bin')
-export const SHELL_DIR = join(PARLOUR_DIR, 'shell')
+export const BIN_DIR = join(CHORALE_DIR, 'bin')
+export const SHELL_DIR = join(CHORALE_DIR, 'shell')
 
-const WRAPPER_MARKER = '# parlour-managed-wrapper v1'
+const WRAPPER_MARKER = '# chorale-managed-wrapper v1'
 
 const WRAPPER_TEMPLATE = `#!/bin/sh
 ${WRAPPER_MARKER}
 find_real_binary() {
   _OIFS="$IFS"; IFS=":"
   for _d in $PATH; do
-    case "$_d" in "\${HOME}/.parlour/bin") continue ;; esac
+    case "$_d" in "\${HOME}/.chorale/bin") continue ;; esac
     [ -x "\${_d}/\${1}" ] && IFS="$_OIFS" && echo "\${_d}/\${1}" && return 0
   done
   IFS="$_OIFS"; return 1
 }
 REAL="$(find_real_binary "__BINARY__")"
-[ -z "$REAL" ] && echo "parlour: __BINARY__ not found" >&2 && exit 127
-[ ! -f "\${HOME}/.parlour/.mcp-port" ] && exec "$REAL" "$@"
-export PARLOUR_REAL_BINARY="$REAL"
+[ -z "$REAL" ] && echo "chorale: __BINARY__ not found" >&2 && exit 127
+[ ! -f "\${HOME}/.chorale/.mcp-port" ] && exec "$REAL" "$@"
+export CHORALE_REAL_BINARY="$REAL"
 exec "$REAL" "$@"
 `
 
 const NOTIFY_SCRIPT = `#!/bin/sh
 ${WRAPPER_MARKER}
-[ -z "$PARLOUR_CHAT_ID" ] || [ ! -f "\${HOME}/.parlour/.mcp-port" ] && exit 0
-PORT="$(cat "\${HOME}/.parlour/.mcp-port")"
+[ -z "$CHORALE_CHAT_ID" ] || [ ! -f "\${HOME}/.chorale/.mcp-port" ] && exit 0
+PORT="$(cat "\${HOME}/.chorale/.mcp-port")"
 EVENT="$1"; shift
 TOOL=""; while [ $# -gt 0 ]; do case "$1" in --tool) TOOL="$2"; shift 2 ;; *) shift ;; esac; done
-BODY="{\\"chat_id\\":\\"$PARLOUR_CHAT_ID\\",\\"event\\":\\"$EVENT\\""
+BODY="{\\"chat_id\\":\\"$CHORALE_CHAT_ID\\",\\"event\\":\\"$EVENT\\""
 [ -n "$TOOL" ] && BODY="$BODY,\\"data\\":{\\"tool\\":\\"$TOOL\\"}"
 BODY="$BODY}"
-curl -s -X POST "http://localhost:$PORT/api/hooks?caller=$PARLOUR_CHAT_ID" \\
+curl -s -X POST "http://localhost:$PORT/api/hooks?caller=$CHORALE_CHAT_ID" \\
   -H "Content-Type: application/json" -d "$BODY" --connect-timeout 1 --max-time 2 >/dev/null 2>&1 &
 exit 0
 `
 
 const ZSHENV_TEMPLATE = `${WRAPPER_MARKER}
-[ -f "\${PARLOUR_REAL_ZDOTDIR:-$HOME}/.zshenv" ] && ZDOTDIR="\${PARLOUR_REAL_ZDOTDIR:-$HOME}" source "\${PARLOUR_REAL_ZDOTDIR:-$HOME}/.zshenv"
-export PATH="\${HOME}/.parlour/bin:\${PATH}"
+[ -f "\${CHORALE_REAL_ZDOTDIR:-$HOME}/.zshenv" ] && ZDOTDIR="\${CHORALE_REAL_ZDOTDIR:-$HOME}" source "\${CHORALE_REAL_ZDOTDIR:-$HOME}/.zshenv"
+export PATH="\${HOME}/.chorale/bin:\${PATH}"
 `
 
 const BASHRC_TEMPLATE = `${WRAPPER_MARKER}
 [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
-export PATH="\${HOME}/.parlour/bin:\${PATH}"
+export PATH="\${HOME}/.chorale/bin:\${PATH}"
 `
 
 export class WrapperManager {
@@ -101,7 +101,7 @@ export class WrapperManager {
   }
 
   async generateNotifyScript(): Promise<void> {
-    const path = join(BIN_DIR, 'parlour-notify')
+    const path = join(BIN_DIR, 'chorale-notify')
     await writeFile(path, NOTIFY_SCRIPT, 'utf-8')
     await chmod(path, 0o755)
   }
@@ -112,7 +112,7 @@ export class WrapperManager {
   }
 
   async pruneStaleWrappers(current: Set<string>): Promise<void> {
-    const keepFiles = new Set([...current, 'parlour-notify'])
+    const keepFiles = new Set([...current, 'chorale-notify'])
     try {
       const entries = await readdir(BIN_DIR)
       for (const entry of entries) {

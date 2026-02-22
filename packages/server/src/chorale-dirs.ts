@@ -3,11 +3,11 @@ import { homedir } from 'node:os'
 import { mkdir, writeFile, readFile, readdir, stat, lstat, cp } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 
-export const PARLOUR_DIR = join(homedir(), '.parlour')
-export const BARE_DIR = join(PARLOUR_DIR, 'bare')
-export const PROJECT_SETUP_DIR = join(PARLOUR_DIR, 'project-setup')
-export const SKILLS_DIR = join(PARLOUR_DIR, 'skills')
-export const LLM_DEFAULTS_DIR = join(PARLOUR_DIR, 'llm-defaults')
+export const CHORALE_DIR = join(homedir(), '.chorale')
+export const BARE_DIR = join(CHORALE_DIR, 'bare')
+export const PROJECT_SETUP_DIR = join(CHORALE_DIR, 'project-setup')
+export const SKILLS_DIR = join(CHORALE_DIR, 'skills')
+export const LLM_DEFAULTS_DIR = join(CHORALE_DIR, 'llm-defaults')
 
 const DEFAULT_SKILLS: Record<string, string> = {
   'pr-review.md': `# PR Review
@@ -75,51 +75,51 @@ export interface ProjectInfo {
   path: string
   branch?: string
   isGitRepo: boolean
-  prInfo?: import('@parlour/api-types').PrInfo
+  prInfo?: import('@chorale/api-types').PrInfo
 }
 
 export async function createChatDir(chatId: string, parentDirPath?: string): Promise<string> {
   const chatDir = parentDirPath
     ? join(parentDirPath, 'chats', chatId)
-    : join(PARLOUR_DIR, 'chats', chatId)
+    : join(CHORALE_DIR, 'chats', chatId)
   await mkdir(join(chatDir, 'projects'), { recursive: true })
   return chatDir
 }
 
-const PARLOUR_AGENTS_MD = `# Parlour
+const CHORALE_AGENTS_MD = `# Chorale
 
-You are running inside Parlour, a desktop app for orchestrating parallel AI agents.
+You are running inside Chorale, a desktop app for orchestrating parallel AI agents.
 
-## parlour CLI
+## chorale CLI
 
-Use the \`parlour\` command to interact with Parlour. Run \`parlour --help\` for full usage.
+Use the \`chorale\` command to interact with Chorale. Run \`chorale --help\` for full usage.
 
 ### Projects
 
-- \`parlour project open <path-or-url>\` — Open a project by local path or git URL. Creates a local clone under \`./projects/\`. Add \`--branch <name>\` and/or \`--base <name>\`.
-- \`parlour project list\` — List projects available to this chat with their branches.
+- \`chorale project open <path-or-url>\` — Open a project by local path or git URL. Creates a local clone under \`./projects/\`. Add \`--branch <name>\` and/or \`--base <name>\`.
+- \`chorale project list\` — List projects available to this chat with their branches.
 
 ### Dispatch & Orchestration
 
-- \`parlour dispatch "<prompt>"\` — Spawn a sub-agent chat. Add \`--project <path>\` for project-scoped work. Add \`--llm <command>\` to use a specific CLI (codex, gemini, opencode, aider).
-- \`parlour status [chatId]\` — Check status of a chat (defaults to current).
-- \`parlour list-children\` — List child chats.
-- \`parlour report "<message>"\` — Send a message to the parent chat.
-- \`parlour send <chatId> "<message>"\` — Send a message to any chat by ID.
+- \`chorale dispatch "<prompt>"\` — Spawn a sub-agent chat. Add \`--project <path>\` for project-scoped work. Add \`--llm <command>\` to use a specific CLI (codex, gemini, opencode, aider).
+- \`chorale status [chatId]\` — Check status of a chat (defaults to current).
+- \`chorale list-children\` — List child chats.
+- \`chorale report "<message>"\` — Send a message to the parent chat.
+- \`chorale send <chatId> "<message>"\` — Send a message to any chat by ID.
 
 Dispatch once, then use \`send\` to converse with children. Use \`report\` to reply to parent.
 
 ### Scheduling
 
-- \`parlour schedule "<prompt>" --cron "0 * * * *"\` — Schedule a recurring task.
-- \`parlour schedule "<prompt>" --at "2025-01-01T00:00:00"\` — Schedule a one-time task.
-- \`parlour schedule list\` — List all scheduled tasks.
-- \`parlour schedule cancel <id>\` — Cancel a scheduled task.
-- \`parlour schedule run <id>\` — Trigger an immediate run.
+- \`chorale schedule "<prompt>" --cron "0 * * * *"\` — Schedule a recurring task.
+- \`chorale schedule "<prompt>" --at "2025-01-01T00:00:00"\` — Schedule a one-time task.
+- \`chorale schedule list\` — List all scheduled tasks.
+- \`chorale schedule cancel <id>\` — Cancel a scheduled task.
+- \`chorale schedule run <id>\` — Trigger an immediate run.
 
 ## Important Patterns
 
-**Always use \`parlour project open\` when asked to work with a project, check out a branch, or open a repo.** Never \`git clone\` or \`git checkout\` manually — it handles cloning, branching, and project tracking. cd into the returned path to work.
+**Always use \`chorale project open\` when asked to work with a project, check out a branch, or open a repo.** Never \`git clone\` or \`git checkout\` manually — it handles cloning, branching, and project tracking. cd into the returned path to work.
 
 **Read each project's CLAUDE.md or AGENTS.md** for project-specific instructions.
 
@@ -186,9 +186,9 @@ export async function writeAgentsMd(
   await mkdir(chatDir, { recursive: true })
 
   let userContent = ''
-  try { userContent = await readFile(join(PARLOUR_DIR, 'AGENTS.md'), 'utf-8') } catch {}
+  try { userContent = await readFile(join(CHORALE_DIR, 'AGENTS.md'), 'utf-8') } catch {}
 
-  let content = userContent || PARLOUR_AGENTS_MD
+  let content = userContent || CHORALE_AGENTS_MD
 
   const scanned = projects ?? await scanProjects(chatDir)
 
@@ -204,7 +204,7 @@ export async function writeAgentsMd(
     const available = await scanProjectRoots(projectRoots)
     if (available.length > 0) {
       content += '\n## Available Repos\n\n'
-      content += 'These local repos can be opened with `parlour project open`:\n\n'
+      content += 'These local repos can be opened with `chorale project open`:\n\n'
       for (const repo of available) {
         content += `- \`${repo}\`\n`
       }

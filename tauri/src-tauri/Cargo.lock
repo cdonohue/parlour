@@ -2413,7 +2413,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "parlour"
+name = "chorale"
 version = "0.1.0"
 dependencies = [
  "serde",

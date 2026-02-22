@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { TerminalPanel as TerminalPanelUI, getTerminalTheme } from '@parlour/ui'
-import { usePlatform } from '@parlour/platform'
+import { TerminalPanel as TerminalPanelUI, getTerminalTheme } from '@chorale/ui'
+import { usePlatform } from '@chorale/platform'
 import { useAppStore } from '../store/app-store'
 
 function useResolvedTheme(): 'dark' | 'light' {

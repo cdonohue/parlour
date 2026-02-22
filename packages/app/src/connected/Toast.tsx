@@ -1,4 +1,4 @@
-import { ToastContainer as ToastContainerUI } from '@parlour/ui'
+import { ToastContainer as ToastContainerUI } from '@chorale/ui'
 import { useAppStore } from '../store/app-store'
 
 export function ToastContainer() {

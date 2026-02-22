@@ -1,5 +1,5 @@
 {
-  "name": "@parlour/server",
+  "name": "@chorale/server",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@parlour/api-types": "workspace:*",
+    "@chorale/api-types": "workspace:*",
     "croner": "^10.0.1",
     "node-pty": "^1.1.0",
     "ws": "^8.19.0"

@@ -1,4 +1,4 @@
-import type { Chat } from '@parlour/ui'
+import type { Chat } from '@chorale/ui'
 
 const now = Date.now()
 const HOUR = 3600_000
@@ -9,7 +9,7 @@ export const SEED_CHATS: Chat[] = [
     name: 'Refactor auth middleware',
     status: 'active',
     ptyId: null,
-    dirPath: '/tmp/parlour/chats/chat-1',
+    dirPath: '/tmp/chorale/chats/chat-1',
     createdAt: now - 2 * HOUR,
     lastActiveAt: now - 5_000,
     pinnedAt: now - HOUR,
@@ -19,7 +19,7 @@ export const SEED_CHATS: Chat[] = [
     name: 'Add dark mode support',
     status: 'done',
     ptyId: null,
-    dirPath: '/tmp/parlour/chats/chat-2',
+    dirPath: '/tmp/chorale/chats/chat-2',
     createdAt: now - 24 * HOUR,
     lastActiveAt: now - 12 * HOUR,
     pinnedAt: null,
@@ -29,7 +29,7 @@ export const SEED_CHATS: Chat[] = [
     name: 'Fix CI pipeline',
     status: 'error',
     ptyId: null,
-    dirPath: '/tmp/parlour/chats/chat-3',
+    dirPath: '/tmp/chorale/chats/chat-3',
     createdAt: now - 3 * HOUR,
     lastActiveAt: now - 2 * HOUR,
     pinnedAt: null,

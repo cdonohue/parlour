@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import type { PlatformAdapter } from '@parlour/platform'
-import type { Chat } from '@parlour/ui'
+import type { PlatformAdapter } from '@chorale/platform'
+import type { Chat } from '@chorale/ui'
 import type { AppState, PersistedState, ContentView } from './types'
 import { DEFAULT_SETTINGS } from './types'
 

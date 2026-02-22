@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Parlour — Multi-Target Architecture Explorer</title>
+<title>Chorale — Multi-Target Architecture Explorer</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -91,7 +91,7 @@
 <body>
 
 <div class="header">
-  <h1>Parlour <span>Architecture Explorer</span></h1>
+  <h1>Chorale <span>Architecture Explorer</span></h1>
   <div class="legend" id="legend"></div>
   <div class="view-toggle">
     <button class="active" onclick="setView('current')">Current</button>
@@ -118,7 +118,7 @@ const state = { view: 'current', selected: null };
 // ── View 1: Current ──
 
 const CURRENT_LAYERS = [
-  { id: 'ui', label: '@parlour/ui', sub: 'packages/ui/', y: 0, color: 'green',
+  { id: 'ui', label: '@chorale/ui', sub: 'packages/ui/', y: 0, color: 'green',
     desc: 'Presentational React components. Zero platform deps. Exports Sidebar, Terminal, Settings, primitives.',
     files: ['packages/ui/src/components/', 'packages/ui/src/primitives/', 'packages/ui/src/types.ts'],
     details: ['19 components, 12 primitives', 'xterm.js Terminal takes callbacks as props', 'Storybook for dev'],
@@ -161,7 +161,7 @@ const CURRENT_LEGEND = [
 // ── View 2: Foundation (Phase A) ──
 
 const FOUNDATION_LAYERS = [
-  { id: 'ui', label: '@parlour/ui', sub: 'packages/ui/', y: 0, color: 'green',
+  { id: 'ui', label: '@chorale/ui', sub: 'packages/ui/', y: 0, color: 'green',
     desc: 'Unchanged. Presentational React components with zero platform deps.',
     files: ['packages/ui/src/components/', 'packages/ui/src/primitives/', 'packages/ui/src/types.ts'],
     details: ['No changes needed', 'Already platform-agnostic'] },
@@ -186,24 +186,24 @@ const FOUNDATION_LAYERS = [
 
 const FOUNDATION_CROSSCUTS = [
   { id: 'logger', label: 'Logger', sub: 'logger.ts', color: 'yellow', side: 'right', row: 0,
-    desc: 'Structured JSON line logger. Writes to ~/.parlour/logs/parlour.jsonl with rotation. Child loggers per service. Console output in dev.',
+    desc: 'Structured JSON line logger. Writes to ~/.chorale/logs/chorale.jsonl with rotation. Child loggers per service. Console output in dev.',
     files: ['desktop/src/main/logger.ts'],
-    details: ['JSON lines to ~/.parlour/logs/parlour.jsonl', '5MB rotation', 'Levels: error, warn, info, debug', 'Child loggers: logger.child({ service: "ChatRegistry" })', 'Replaces 12 scattered console.error calls'],
+    details: ['JSON lines to ~/.chorale/logs/chorale.jsonl', '5MB rotation', 'Levels: error, warn, info, debug', 'Child loggers: logger.child({ service: "ChatRegistry" })', 'Replaces 12 scattered console.error calls'],
     events: ['Subscribes to lifecycle * for audit trail'] },
   { id: 'lifecycle', label: 'Lifecycle', sub: 'lifecycle.ts', color: 'blue', side: 'right', row: 1,
     desc: 'Typed event emitter for terminal + harness + CLI events. Wildcard subscriptions. Single event bus for all observability.',
     files: ['desktop/src/main/lifecycle.ts'],
     details: ['3 event streams: Terminal, Harness, CLI', 'Wildcard: on("*") and on("harness:*")', 'Consumers: Logger, Renderer (IPC), HarnessTracker'],
     events: ['chat:created, chat:resumed, chat:deleted', 'pty:spawned, pty:exit', 'harness:tool:start, harness:tool:end, harness:status', 'cli:dispatch, cli:status, cli:hook'] },
-  { id: 'cli', label: 'parlour CLI', sub: 'parlour-cli/', color: 'green', side: 'left', row: 0,
+  { id: 'cli', label: 'chorale CLI', sub: 'chorale-cli/', color: 'green', side: 'left', row: 0,
     desc: 'Agent-facing CLI replacing MCP tool descriptions. Thin HTTP client hitting the same backend. Self-documenting via --help.',
-    files: ['parlour-cli/src/index.ts', 'parlour-cli/package.json'],
-    details: ['parlour dispatch "task"', 'parlour status [chatId]', 'parlour hook pre-tool-use --tool $TOOL', 'parlour report "message"', 'parlour schedule "task" --cron "..."', 'Reads PARLOUR_CHAT_ID from env', 'Reads port from ~/.parlour/.mcp-port'],
+    files: ['chorale-cli/src/index.ts', 'chorale-cli/package.json'],
+    details: ['chorale dispatch "task"', 'chorale status [chatId]', 'chorale hook pre-tool-use --tool $TOOL', 'chorale report "message"', 'chorale schedule "task" --cron "..."', 'Reads CHORALE_CHAT_ID from env', 'Reads port from ~/.chorale/.mcp-port'],
     events: ['Each invocation emits a CliEvent', 'cli:dispatch, cli:status, cli:hook, cli:report'] },
   { id: 'harness', label: 'Harness', sub: 'harness-*.ts', color: 'purple', side: 'left', row: 1,
     desc: 'Two mechanisms: CLI hooks (structured events from Claude) + output parser (regex on PTY stream). Feeds into HarnessTracker per chat.',
     files: ['desktop/src/main/harness-parser.ts', 'desktop/src/main/harness-tracker.ts', 'desktop/src/main/cli-config.ts'],
-    details: ['Claude hooks: PreToolUse, PostToolUse, Stop', 'Hooks call: parlour hook pre-tool-use --tool $TOOL', 'Output parser: ClaudeOutputParser + GenericOutputParser', 'HarnessTracker: idle/thinking/writing/tool-use/waiting/done/error', 'One tracker per active chat'],
+    details: ['Claude hooks: PreToolUse, PostToolUse, Stop', 'Hooks call: chorale hook pre-tool-use --tool $TOOL', 'Output parser: ClaudeOutputParser + GenericOutputParser', 'HarnessTracker: idle/thinking/writing/tool-use/waiting/done/error', 'One tracker per active chat'],
     events: ['harness:tool:start, harness:tool:end', 'harness:thinking, harness:writing', 'harness:waiting, harness:stop', 'harness:status (unified state change)'] },
 ];
 
@@ -224,11 +224,11 @@ const FOUNDATION_LEGEND = [
 // ── View 3: Target (Phase B+) ──
 
 const TARGET_LAYERS = [
-  { id: 'ui', label: '@parlour/ui', sub: 'packages/ui/', y: 0, color: 'green',
+  { id: 'ui', label: '@chorale/ui', sub: 'packages/ui/', y: 0, color: 'green',
     desc: 'Unchanged. Presentational React components with zero platform deps.',
     files: ['packages/ui/src/components/', 'packages/ui/src/primitives/', 'packages/ui/src/types.ts'],
     details: ['No changes needed', 'Already platform-agnostic', 'xterm.js works in any browser'] },
-  { id: 'app', label: '@parlour/app', sub: 'packages/app/', y: 1, color: 'green',
+  { id: 'app', label: '@chorale/app', sub: 'packages/app/', y: 1, color: 'green',
     desc: 'Extracted from desktop/src/renderer. Store + connected wrappers + hooks. Uses usePlatform() instead of window.api.',
     files: ['packages/app/src/store/app-store.ts', 'packages/app/src/connected/*.tsx', 'packages/app/src/hooks/*.ts', 'packages/app/src/App.tsx'],
     details: ['Store factory accepts PlatformAdapter', 'Connected wrappers use usePlatform()', 'Testable with mock adapter, no Electron'] },
@@ -239,15 +239,15 @@ const TARGET_LAYERS = [
   { id: 'electron', label: 'Electron Shell', sub: 'desktop/', y: 3.5, color: 'orange', x: -1,
     desc: 'Thin entry point (~30 lines). Creates adapter from window.api, inits store, renders App.',
     files: ['desktop/src/renderer/index.tsx', 'desktop/src/renderer/electron-adapter.ts', 'desktop/src/preload/index.ts'],
-    details: ['Adapter = window.api (trivial)', 'Preload satisfies PlatformAdapter', 'Main process services unchanged', 'parlour CLI connects to localhost'] },
+    details: ['Adapter = window.api (trivial)', 'Preload satisfies PlatformAdapter', 'Main process services unchanged', 'chorale CLI connects to localhost'] },
   { id: 'tauri', label: 'Tauri Shell', sub: 'tauri/ (future)', y: 3.5, color: 'orange', x: 0,
     desc: 'Implements PlatformAdapter via @tauri-apps/api invoke(). Rust backend with portable-pty.',
     files: ['tauri/src/adapter.ts', 'tauri/src-tauri/'],
-    details: ['invoke() maps 1:1 to adapter', 'Rust PTY via portable-pty', 'Tauri events for PTY streaming', 'parlour CLI connects to localhost'] },
+    details: ['invoke() maps 1:1 to adapter', 'Rust PTY via portable-pty', 'Tauri events for PTY streaming', 'chorale CLI connects to localhost'] },
   { id: 'web', label: 'Web / Cloud', sub: 'web/ (future)', y: 3.5, color: 'orange', x: 1,
     desc: 'HTTP API + WebSocket for PTY streaming. Backend runs services, browser gets React app.',
     files: ['web/src/adapter.ts', 'web/src/ws-pty.ts', 'server/'],
-    details: ['HTTP for request-reply methods', 'WebSocket multiplexes PTY streams', 'parlour CLI uses PARLOUR_API_URL'] },
+    details: ['HTTP for request-reply methods', 'WebSocket multiplexes PTY streams', 'chorale CLI uses CHORALE_API_URL'] },
 ];
 
 const TARGET_FLOWS = [
@@ -597,12 +597,12 @@ function updatePrompt() {
     const l = sel && (FOUNDATION_LAYERS.find(la => la.id === sel) || FOUNDATION_CROSSCUTS.find(c => c.id === sel));
     prompt = l
       ? `Foundation: ${l.label} (${l.files?.[0] || ''}) \u2014 ${l.desc}`
-      : 'Phase A foundation: structured logger (JSON lines), lifecycle event emitter (terminal + harness + CLI streams), parlour CLI (agent-facing), harness hooks (Claude CLI + output parser), simplified ChatRegistry (filesystem as truth, ~230 lines removed).';
+      : 'Phase A foundation: structured logger (JSON lines), lifecycle event emitter (terminal + harness + CLI streams), chorale CLI (agent-facing), harness hooks (Claude CLI + output parser), simplified ChatRegistry (filesystem as truth, ~230 lines removed).';
   } else {
     const l = sel && TARGET_LAYERS.find(la => la.id === sel);
     prompt = l
       ? `Target: ${l.label} (${l.sub}) \u2014 ${l.desc}`
-      : 'Target: extract React app into @parlour/app behind PlatformAdapter interface. Electron becomes thin shell. Enables Tauri + web targets. Foundation systems (logger, lifecycle, CLI, harness) carry over.';
+      : 'Target: extract React app into @chorale/app behind PlatformAdapter interface. Electron becomes thin shell. Enables Tauri + web targets. Foundation systems (logger, lifecycle, CLI, harness) carry over.';
   }
 
   document.getElementById('prompt').textContent = prompt;

@@ -13,9 +13,9 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@parlour/platform": ["../platform/src/index.ts"],
-      "@parlour/ui": ["../ui/src/index.ts"],
-      "@parlour/ui/*": ["../ui/src/*"]
+      "@chorale/platform": ["../platform/src/index.ts"],
+      "@chorale/ui": ["../ui/src/index.ts"],
+      "@chorale/ui/*": ["../ui/src/*"]
     }
   },
   "include": ["src/**/*"]

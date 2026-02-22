@@ -2,7 +2,7 @@ import { Cron } from 'croner'
 import { join } from 'node:path'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import type { ChatRegistry } from './chat-registry'
-import { PARLOUR_DIR } from './parlour-dirs'
+import { CHORALE_DIR } from './chorale-dirs'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
 
@@ -22,7 +22,7 @@ export interface Schedule {
   lastRunStatus?: 'success' | 'failed' | 'running'
 }
 
-const SCHEDULES_FILE = join(PARLOUR_DIR, 'schedules.json')
+const SCHEDULES_FILE = join(CHORALE_DIR, 'schedules.json')
 
 export class TaskScheduler {
   private schedules = new Map<string, Schedule>()
@@ -206,7 +206,7 @@ export class TaskScheduler {
 
   private async save(): Promise<void> {
     try {
-      await mkdir(PARLOUR_DIR, { recursive: true })
+      await mkdir(CHORALE_DIR, { recursive: true })
       await writeFile(SCHEDULES_FILE, JSON.stringify(this.list(), null, 2), 'utf-8')
     } catch (err) {
       log.error('Failed to save schedules', { error: String(err) })

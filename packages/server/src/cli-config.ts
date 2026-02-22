@@ -4,10 +4,10 @@ import { existsSync } from 'node:fs'
 import type { CliType } from './cli-detect'
 import type { McpServerConfig } from './config-service'
 import { getGlobalMcpServers, getCustomLlms } from './config-service'
-import { LLM_DEFAULTS_DIR } from './parlour-dirs'
+import { LLM_DEFAULTS_DIR } from './chorale-dirs'
 
 const DEFAULT_ALLOW = [
-  'Bash(parlour *)',
+  'Bash(chorale *)',
 ]
 
 const DEFAULT_DENY = [
@@ -54,13 +54,13 @@ async function readDefaults(cliName: string, filename: string): Promise<string |
 function buildClaudeHooks(): Record<string, unknown[]> {
   return {
     PreToolUse: [{
-      hooks: [{ type: 'command', command: 'parlour hook pre-tool-use' }],
+      hooks: [{ type: 'command', command: 'chorale hook pre-tool-use' }],
     }],
     PostToolUse: [{
-      hooks: [{ type: 'command', command: 'parlour hook post-tool-use' }],
+      hooks: [{ type: 'command', command: 'chorale hook post-tool-use' }],
     }],
     Stop: [{
-      hooks: [{ type: 'command', command: 'parlour hook stop' }],
+      hooks: [{ type: 'command', command: 'chorale hook stop' }],
     }],
   }
 }

@@ -12,11 +12,11 @@ export interface TestServer {
 }
 
 export async function createTestServer(): Promise<TestServer> {
-  const dataDir = await mkdtemp(join(tmpdir(), 'parlour-test-'))
-  const stateFile = join(dataDir, 'parlour-state.json')
+  const dataDir = await mkdtemp(join(tmpdir(), 'chorale-test-'))
+  const stateFile = join(dataDir, 'chorale-state.json')
 
-  vi.doMock('../parlour-dirs', () => ({
-    PARLOUR_DIR: dataDir,
+  vi.doMock('../chorale-dirs', () => ({
+    CHORALE_DIR: dataDir,
     BARE_DIR: join(dataDir, 'bare'),
     PROJECT_SETUP_DIR: join(dataDir, 'project-setup'),
     SKILLS_DIR: join(dataDir, 'skills'),
@@ -48,7 +48,7 @@ export async function createTestServer(): Promise<TestServer> {
   const { PtyManager } = await import('../pty-manager')
   const { ChatRegistry } = await import('../chat-registry')
   const { TaskScheduler } = await import('../task-scheduler')
-  const { ParlourService } = await import('../parlour-service')
+  const { ChoraleService } = await import('../chorale-service')
   const { ApiServer } = await import('../api-server')
 
   const themeManager = new ThemeManager()
@@ -69,10 +69,10 @@ export async function createTestServer(): Promise<TestServer> {
   const taskScheduler = new TaskScheduler(chatRegistry, settings, () => {})
   await taskScheduler.loadAndStart().catch(() => {})
 
-  const parlourService = new ParlourService(
+  const choraleService = new ChoraleService(
     chatRegistry, ptyManager, taskScheduler, settings, themeManager, stateFile,
   )
-  const apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
+  const apiServer = new ApiServer(choraleService, chatRegistry, taskScheduler)
 
   const port = await apiServer.start()
   const baseUrl = `http://127.0.0.1:${port}`

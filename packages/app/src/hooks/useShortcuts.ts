@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useHotkey } from '@tanstack/react-hotkeys'
-import { usePlatform } from '@parlour/platform'
+import { usePlatform } from '@chorale/platform'
 import { useAppStore } from '../store/app-store'
-import type { Keybindings } from '@parlour/ui'
+import type { Keybindings } from '@chorale/ui'
 
 function useKeybindings(): Keybindings {
   return useAppStore((s) => s.settings.keybindings)

@@ -40,8 +40,8 @@ export function createMockAdapter(overrides: Partial<PlatformAdapter> = {}): Pla
     app: {
       selectDirectory: () => resolved(null),
       addProjectPath: () => resolved(undefined),
-      getDataPath: () => resolved('/tmp/parlour'),
-      getParlourPath: () => resolved('/tmp/parlour'),
+      getDataPath: () => resolved('/tmp/chorale'),
+      getChoralePath: () => resolved('/tmp/chorale'),
       discoverOpeners: () => resolved([]),
       openIn: () => resolved(undefined),
     },

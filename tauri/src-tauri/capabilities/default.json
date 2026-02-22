@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for Parlour",
+  "description": "Default capabilities for Chorale",
   "windows": ["main"],
   "permissions": [
     "core:default",

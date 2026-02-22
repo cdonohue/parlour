@@ -28,7 +28,7 @@ export const WithProject: StoryObj<typeof HeaderBar> = {
   args: {
     title: 'Fix auth bug',
     projects: [
-      { name: 'parlour', path: '/tmp/parlour', branch: 'chad/fix-auth', isGitRepo: true },
+      { name: 'chorale', path: '/tmp/chorale', branch: 'chad/fix-auth', isGitRepo: true },
     ],
   },
 }
@@ -38,8 +38,8 @@ export const WithPrPassing: StoryObj<typeof HeaderBar> = {
     title: 'Fix auth bug',
     projects: [
       {
-        name: 'parlour', path: '/tmp/parlour', branch: 'chad/fix-auth', isGitRepo: true,
-        prInfo: { number: 142, state: 'open', title: 'Fix auth token refresh', url: 'https://github.com/org/parlour/pull/142', checkStatus: 'passing', updatedAt: '2026-02-15T00:00:00Z' },
+        name: 'chorale', path: '/tmp/chorale', branch: 'chad/fix-auth', isGitRepo: true,
+        prInfo: { number: 142, state: 'open', title: 'Fix auth token refresh', url: 'https://github.com/org/chorale/pull/142', checkStatus: 'passing', updatedAt: '2026-02-15T00:00:00Z' },
       },
     ],
     onOpenUrl: noop,
@@ -51,8 +51,8 @@ export const WithPrPending: StoryObj<typeof HeaderBar> = {
     title: 'Add dark mode',
     projects: [
       {
-        name: 'parlour', path: '/tmp/parlour', branch: 'chad/dark-mode', isGitRepo: true,
-        prInfo: { number: 88, state: 'open', title: 'Add dark mode support', url: 'https://github.com/org/parlour/pull/88', checkStatus: 'pending', updatedAt: '2026-02-15T00:00:00Z' },
+        name: 'chorale', path: '/tmp/chorale', branch: 'chad/dark-mode', isGitRepo: true,
+        prInfo: { number: 88, state: 'open', title: 'Add dark mode support', url: 'https://github.com/org/chorale/pull/88', checkStatus: 'pending', updatedAt: '2026-02-15T00:00:00Z' },
       },
     ],
     onOpenUrl: noop,
@@ -90,8 +90,8 @@ export const MultipleProjects: StoryObj<typeof HeaderBar> = {
     title: 'Cross-repo refactor',
     projects: [
       {
-        name: 'parlour', path: '/tmp/parlour', branch: 'chad/fix-auth', isGitRepo: true,
-        prInfo: { number: 142, state: 'open', title: 'Fix auth', url: 'https://github.com/org/parlour/pull/142', checkStatus: 'passing', updatedAt: '2026-02-15T00:00:00Z' },
+        name: 'chorale', path: '/tmp/chorale', branch: 'chad/fix-auth', isGitRepo: true,
+        prInfo: { number: 142, state: 'open', title: 'Fix auth', url: 'https://github.com/org/chorale/pull/142', checkStatus: 'passing', updatedAt: '2026-02-15T00:00:00Z' },
       },
       {
         name: 'api', path: '/tmp/api', branch: 'chad/fix-auth', isGitRepo: true,

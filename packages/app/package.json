@@ -1,5 +1,5 @@
 {
-  "name": "@parlour/app",
+  "name": "@chorale/app",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -19,8 +19,8 @@
     "zustand": "^5.0.0"
   },
   "dependencies": {
-    "@parlour/platform": "workspace:*",
-    "@parlour/ui": "workspace:*",
+    "@chorale/platform": "workspace:*",
+    "@chorale/ui": "workspace:*",
     "@tanstack/react-hotkeys": "^0.1.0",
     "allotment": "^1.20.5"
   },
