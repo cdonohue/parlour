@@ -223,7 +223,39 @@ if (isMobile) {
 
 Touch targets: buttons get `min-height: 44px` on mobile.
 
-#### 5e. Connection status indicator
+#### 5e. PWA manifest (Add to Home Screen)
+
+**New file**: `packages/app/dev/manifest.json`
+
+```json
+{
+  "name": "Parlour",
+  "short_name": "Parlour",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+```
+
+**Files**: `packages/app/dev/index.html`
+
+```html
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0b">
+```
+
+`display: standalone` removes browser chrome — the app runs full-screen like a native app. On iOS, "Add to Home Screen" picks up the manifest automatically. On Android, Chrome shows an install prompt.
+
+No service worker needed for MVP — the app requires a live WebSocket connection anyway, so offline caching doesn't add value.
+
+#### 5f. Connection status indicator
 
 **File**: `packages/ui/src/components/ConnectionStatus/ConnectionStatus.tsx` (new)
 
@@ -244,15 +276,16 @@ Render as a thin toast or top-bar when disconnected: "Reconnecting..." that auto
 
 ## Implementation Order
 
-1. Add viewport meta tags to HTML files
+1. Add viewport meta tags + PWA manifest + mobile meta tags to HTML files
 2. Add `--static-dir` flag + static file serving to `ApiServer`
 3. Update browser entry point to auto-detect server URL
 4. Add `useIsMobile` hook
 5. Add mobile layout branch in `App.tsx` (single-column + drawer sidebar)
 6. Add mobile CSS overrides (font size, touch targets)
-7. Create `cloud/` directory with Dockerfile, wrangler.jsonc, Worker
-8. Test locally: build frontend, run server with `--static-dir`, verify desktop + mobile
-9. Document deploy steps in `cloud/README.md`
+7. Add connection status indicator (ws-adapter callback + UI component)
+8. Create `cloud/` directory with Dockerfile, wrangler.jsonc, Worker
+9. Test locally: build frontend, run server with `--static-dir`, verify desktop + mobile
+10. Document deploy steps in `cloud/README.md`
 
 ## What Changes
 
@@ -260,7 +293,8 @@ Render as a thin toast or top-bar when disconnected: "Reconnecting..." that auto
 |------|--------|
 | `api-server.ts` | Add optional `--static-dir` static file serving (~30 lines) |
 | `dev/main.tsx` | Auto-detect serverUrl (1 line) |
-| `index.html` (x2) | Viewport meta tag (1 line each) |
+| `index.html` (x2) | Viewport meta tag + PWA meta tags |
+| `manifest.json` | New PWA manifest for Add to Home Screen |
 | `App.tsx` | Mobile layout branch (~20 lines) |
 | `useIsMobile.ts` | New hook (~15 lines) |
 | `design-tokens.css` | Mobile font size overrides (~5 lines) |
@@ -288,6 +322,13 @@ npx wrangler deploy
 # 3. Visit your cloud instance
 # → https://parlour-cloud.<your-subdomain>.workers.dev
 ```
+
+**From your phone:**
+1. Open the URL in Safari (iOS) or Chrome (Android)
+2. Tap "Add to Home Screen" / install prompt
+3. Parlour icon appears on your home screen
+4. Tap it → full-screen app, no browser chrome, WebSocket connects, your sessions are there
+5. Tap a terminal → virtual keyboard → type into your agent session
 
 No auth for MVP — the user controls their own Cloudflare account and can add Cloudflare Access if they want to restrict access.
 
