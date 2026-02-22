@@ -10,15 +10,15 @@ import { ForgeService } from './forge-service'
 import { FileService } from './file-service'
 import { ThemeManager } from './theme-manager'
 import {
-  PARLOUR_DIR, createChatDir, writeAgentsMd, scanProjects, getClaudeSessionId,
-} from './parlour-dirs'
+  CHORALE_DIR, createChatDir, writeAgentsMd, scanProjects, getClaudeSessionId,
+} from './chorale-dirs'
 import { detectInstalledClis } from './cli-detect'
 import { getCliBaseDefaults } from './cli-config'
 import { loadJsonFile, saveJsonFile } from './claude-config'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
 
-const log = rootLogger.child({ service: 'ParlourService' })
+const log = rootLogger.child({ service: 'ChoraleService' })
 const execAsync = promisify(execFile)
 
 function deriveShortTitle(prompt: string): string {
@@ -48,7 +48,7 @@ const KNOWN_OPENERS = [
   { id: 'nova', name: 'Nova', cli: 'nova' },
 ] as const
 
-export class ParlourService {
+export class ChoraleService {
   private cachedOpeners: Array<{ id: string; name: string }> | null = null
 
   constructor(
@@ -356,7 +356,7 @@ export class ParlourService {
   }
 
   async removeChatDir(chatId: string): Promise<void> {
-    const chatDir = join(PARLOUR_DIR, 'chats', chatId)
+    const chatDir = join(CHORALE_DIR, 'chats', chatId)
     await rm(chatDir, { recursive: true, force: true })
   }
 
@@ -465,8 +465,8 @@ export class ParlourService {
 
   // ── App ──
 
-  getParlourPath(): string {
-    return PARLOUR_DIR
+  getChoralePath(): string {
+    return CHORALE_DIR
   }
 
   async discoverOpeners(): Promise<Array<{ id: string; name: string }>> {
