@@ -13,6 +13,7 @@ const PROMPT_RE = /[❯>$]\s*$/
 export class ClaudeOutputParser implements HarnessParser {
   private inTool = false
   private currentTool: string | null = null
+  private emittedWriting = false
 
   feed(chatId: string, data: string): HarnessEvent[] {
     const events: HarnessEvent[] = []
@@ -22,29 +23,41 @@ export class ClaudeOutputParser implements HarnessParser {
       if (toolStart && !this.inTool) {
         this.inTool = true
         this.currentTool = toolStart[1]
+        this.emittedWriting = false
         events.push({ type: 'harness:tool:start', chatId, tool: this.currentTool })
         continue
       }
 
-      if (TOOL_END_RE.test(line) && this.inTool) {
-        events.push({ type: 'harness:tool:end', chatId, tool: this.currentTool ?? 'unknown' })
-        this.inTool = false
-        this.currentTool = null
+      if (TOOL_END_RE.test(line)) {
+        if (this.inTool) {
+          events.push({ type: 'harness:tool:end', chatId, tool: this.currentTool ?? 'unknown' })
+          this.inTool = false
+          this.currentTool = null
+        }
         continue
       }
 
       if (THINKING_RE.test(line) && !this.inTool) {
+        this.emittedWriting = false
         events.push({ type: 'harness:thinking', chatId })
         continue
       }
 
       if (COST_RE.test(line)) {
+        this.emittedWriting = false
         events.push({ type: 'harness:stop', chatId, reason: 'cost-summary' })
         continue
       }
 
       if (PROMPT_RE.test(line.trim()) && !this.inTool) {
+        this.emittedWriting = false
         events.push({ type: 'harness:waiting', chatId })
+        continue
+      }
+
+      if (!this.inTool && !this.emittedWriting && line.trim().length > 0) {
+        this.emittedWriting = true
+        events.push({ type: 'harness:writing', chatId })
       }
     }
 

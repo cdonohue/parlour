@@ -105,6 +105,10 @@ export interface StateAdapter {
   load(): Promise<unknown>
 }
 
+export interface NotificationsAdapter {
+  onNotification(callback: (info: { chatId: string; chatName: string; status: string }) => void): Unsubscribe
+}
+
 export interface PlatformAdapter {
   git: GitAdapter
   pty: PtyAdapter
@@ -119,4 +123,5 @@ export interface PlatformAdapter {
   cli: CliAdapter
   theme: ThemeAdapter
   state: StateAdapter
+  notifications: NotificationsAdapter
 }

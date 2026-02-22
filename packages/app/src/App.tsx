@@ -15,10 +15,12 @@ import {
   ToastContainer,
 } from './connected'
 import { useShortcuts } from './hooks/useShortcuts'
+import { useNotifications } from './hooks/useNotifications'
 import styles from './App.module.css'
 
 export function App() {
   useShortcuts()
+  useNotifications()
   const platform = usePlatform()
 
   const activeChatId = useAppStore((s) => s.activeChatId)

@@ -12,7 +12,7 @@ import { BIN_DIR } from './wrapper-manager'
 import { getGlobalMcpServers } from './config-service'
 import { logger as rootLogger } from './logger'
 import { lifecycle } from './lifecycle'
-import type { HarnessEvent } from './lifecycle'
+import type { HarnessEvent, HarnessStatus } from './lifecycle'
 import { HarnessTracker } from './harness-tracker'
 
 const log = rootLogger.child({ service: 'ChatRegistry' })
@@ -32,6 +32,8 @@ interface ChatRecord {
   llmCommand?: string
   prompt?: string
   projects?: ProjectInfo[]
+  harnessStatus?: HarnessStatus
+  harnessTool?: string
 }
 
 export interface CreateChatOpts {
@@ -58,6 +60,7 @@ export class ChatRegistry {
   private persistTimer: ReturnType<typeof setTimeout> | null = null
   private dirtyChats = new Set<string>()
   private pendingPrompt = new Set<string>()
+  private notificationListeners: Array<(chatId: string, chatName: string, status: string) => void> = []
 
   constructor(
     ptyManager: PtyManager,
@@ -584,6 +587,18 @@ export class ChatRegistry {
       const he = event as HarnessEvent
       if ('chatId' in he && he.chatId === chatId) {
         tracker.handleEvent(he)
+
+        const hs = tracker.getState()
+        const chat = this.getChat(chatId)
+        if (chat && (chat.harnessStatus !== hs.status || chat.harnessTool !== hs.currentTool)) {
+          const prev = chat.harnessStatus
+          this.updateChatInternal(chatId, { harnessStatus: hs.status, harnessTool: hs.currentTool })
+          this.pushToRenderer()
+          if (hs.status === 'waiting' && prev !== 'waiting') {
+            this.notifyWaiting(chatId, chat.name)
+          }
+        }
+
         if (he.type === 'harness:stop' && !this.autoTitled.has(chatId)) {
           this.autoTitled.add(chatId)
           this.autoRetitle(chatId, he.lastMessage).catch((err) => {
@@ -680,6 +695,8 @@ export class ChatRegistry {
       this.updateChatInternal(chatId, {
         ptyId: null,
         status: exitCode === 0 ? 'done' : 'error',
+        harnessStatus: undefined,
+        harnessTool: undefined,
       })
 
       if (chat.parentId) {
@@ -862,6 +879,18 @@ export class ChatRegistry {
       const idx = this.stateListeners.indexOf(cb)
       if (idx >= 0) this.stateListeners.splice(idx, 1)
     }
+  }
+
+  addNotificationListener(cb: (chatId: string, chatName: string, status: string) => void): () => void {
+    this.notificationListeners.push(cb)
+    return () => {
+      const idx = this.notificationListeners.indexOf(cb)
+      if (idx >= 0) this.notificationListeners.splice(idx, 1)
+    }
+  }
+
+  private notifyWaiting(chatId: string, chatName: string): void {
+    for (const cb of this.notificationListeners) cb(chatId, chatName, 'waiting')
   }
 
   private pushToRenderer(): void {

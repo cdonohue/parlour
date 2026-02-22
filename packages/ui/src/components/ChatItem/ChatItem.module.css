@@ -81,6 +81,28 @@
   background: var(--accent-red);
 }
 
+.statusDot.thinking {
+  background: var(--accent-blue);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+.statusDot.writing {
+  background: var(--accent-blue);
+}
+
+.statusDot.tool-use {
+  background: var(--accent-orange, #f59e0b);
+}
+
+.statusDot.waiting {
+  background: var(--accent-yellow, #eab308);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
 .nestedChat {
   margin-left: calc(var(--space-4) + var(--space-5) + 16px);
 }

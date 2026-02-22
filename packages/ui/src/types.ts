@@ -31,6 +31,8 @@ export interface ProjectContext {
 
 export type ChatStatus = 'active' | 'idle' | 'done' | 'error'
 
+export type HarnessStatus = 'idle' | 'thinking' | 'writing' | 'tool-use' | 'waiting' | 'done' | 'error'
+
 export interface Chat {
   id: string
   name: string
@@ -43,6 +45,8 @@ export interface Chat {
   parentId?: string
   llmCommand?: string
   projects?: ProjectContext[]
+  harnessStatus?: HarnessStatus
+  harnessTool?: string
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark'

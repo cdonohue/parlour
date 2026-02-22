@@ -20,6 +20,7 @@ export function createWebSocketAdapter(
   const stateListeners = new Set<Listener<{ chats: unknown[] }>>()
   const scheduleListeners = new Set<Listener<unknown[]>>()
   const themeListeners = new Set<Listener<'dark' | 'light'>>()
+  const notificationListeners = new Set<Listener<{ chatId: string; chatName: string; status: string }>>()
 
   let ws: WebSocket | null = null
   let reconnectAttempt = 0
@@ -84,6 +85,9 @@ export function createWebSocketAdapter(
           break
         case 'state:schedules':
           scheduleListeners.forEach((cb) => cb(msg.schedules))
+          break
+        case 'notification':
+          notificationListeners.forEach((cb) => cb({ chatId: msg.chatId, chatName: msg.chatName, status: msg.status }))
           break
         case 'theme:resolved':
           themeListeners.forEach((cb) => cb(msg.resolved))
@@ -291,6 +295,12 @@ export function createWebSocketAdapter(
     state: {
       save: (data) => api('POST', '/state/save', { data }),
       load: () => api('GET', '/state/load'),
+    },
+    notifications: {
+      onNotification: (cb) => {
+        notificationListeners.add(cb)
+        return () => { notificationListeners.delete(cb) }
+      },
     },
   }
 
