@@ -120,6 +120,17 @@ export class ApiServer {
         return
       }
 
+      if (method === 'POST' && path === '/send') {
+        const body = await this.readBody(req)
+        const chatId = (body.chat_id as string) ?? caller ?? ''
+        const targetId = body.target_id as string
+        const ok = await this.service.send(chatId, targetId, body.message as string)
+        if (!ok) { this.json(res, { error: 'Target chat not running' }, 400); return }
+        lifecycle.emit({ type: 'cli:send', chatId, targetId })
+        this.json(res, { ok: true })
+        return
+      }
+
       if (method === 'GET' && path === '/schedules') {
         if (caller) lifecycle.emit({ type: 'cli:schedule', chatId: caller, action: 'list' })
         this.json(res, this.service.listSchedules())

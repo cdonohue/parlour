@@ -56,6 +56,7 @@ Commands:
   status [chatId] [--follow]     Check chat status (--follow for live SSE stream)
   list-children                  List child chats
   report <message>               Send message to parent
+  send <chatId> <message>        Send message to any chat
   schedule <prompt> --cron <exp> Create scheduled task
   schedule list                  List schedules
   schedule cancel <id>           Cancel schedule
@@ -144,6 +145,18 @@ async function report(args: string[]): Promise<void> {
 
   await api('/report', { chat_id: CHAT_ID, parent_id: PARENT_ID, message })
   process.stdout.write('Reported to parent\n')
+}
+
+async function send(args: string[]): Promise<void> {
+  const targetId = args[0]
+  const message = args.slice(1).join(' ')
+  if (!targetId || !message) {
+    process.stderr.write('Usage: parlour send <chatId> <message>\n')
+    process.exit(1)
+  }
+
+  await api('/send', { chat_id: CHAT_ID || undefined, target_id: targetId, message })
+  process.stdout.write(`Sent to ${targetId}\n`)
 }
 
 async function schedule(args: string[]): Promise<void> {
@@ -250,6 +263,7 @@ switch (command) {
   case 'status': await status(args); break
   case 'list-children': await listChildren(); break
   case 'report': await report(args); break
+  case 'send': await send(args); break
   case 'schedule': await schedule(args); break
   case 'project': await project(args); break
   case 'hook': await hook(args); break

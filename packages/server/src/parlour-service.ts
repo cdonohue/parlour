@@ -101,6 +101,26 @@ export class ParlourService {
     return true
   }
 
+  async send(chatId: string, targetId: string, message: string): Promise<boolean> {
+    const target = this.chatRegistry.getChat(targetId)
+    if (!target) return false
+
+    if (!target.ptyId) {
+      await this.chatRegistry.resumeChat(targetId)
+      const resumed = this.chatRegistry.getChat(targetId)
+      if (!resumed?.ptyId) return false
+      const bracketed = `\x1b[200~${message}\x1b[201~`
+      await this.ptyManager.writeWhenReady(resumed.ptyId, bracketed, false)
+      setTimeout(() => this.ptyManager.write(resumed.ptyId!, '\r'), 500)
+      return true
+    }
+
+    const bracketed = `\x1b[200~${message}\x1b[201~`
+    this.ptyManager.write(target.ptyId, bracketed)
+    setTimeout(() => this.ptyManager.write(target.ptyId!, '\r'), 500)
+    return true
+  }
+
   // ── Schedules ──
 
   listSchedules(): Array<{

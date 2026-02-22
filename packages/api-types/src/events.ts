@@ -28,6 +28,7 @@ export type CliEvent =
   | { type: 'cli:status'; chatId: string; queriedId?: string }
   | { type: 'cli:schedule'; chatId: string; action: 'create' | 'cancel' | 'list' | 'run' }
   | { type: 'cli:report'; chatId: string; parentId: string }
+  | { type: 'cli:send'; chatId: string; targetId: string }
   | { type: 'cli:project'; chatId: string; action: 'list' | 'open' }
   | { type: 'cli:hook'; chatId: string; event: string; data?: Record<string, unknown> }
 
