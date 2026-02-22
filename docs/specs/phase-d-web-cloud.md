@@ -6,10 +6,10 @@ Hosted service running PTY processes in containers. Same API contract as desktop
 
 ## Prerequisites
 
-- `@parlour/app` fully extracted behind `PlatformAdapter` (Phase B, done)
+- `@chorale/app` fully extracted behind `PlatformAdapter` (Phase B, done)
 - SSE event stream endpoint (Phase B, done)
 - PTY WebSocket streaming (Phase B, done)
-- `parlour` CLI with `PARLOUR_API_URL` transport resolution (Phase A, done)
+- `chorale` CLI with `CHORALE_API_URL` transport resolution (Phase A, done)
 
 ## D1. Cloud Backend
 
@@ -22,20 +22,20 @@ Runtime options:
 
 Each user session gets a container with:
 - PTY processes (one per chat)
-- Filesystem (`~/.parlour/chats/`)
+- Filesystem (`~/.chorale/chats/`)
 - API server (same routes as desktop)
-- `parlour` CLI (already works via `PARLOUR_API_URL`)
+- `chorale` CLI (already works via `CHORALE_API_URL`)
 
 ## D2. Authentication
 
 ```
-PARLOUR_API_URL=https://parlour.example.com/api
-PARLOUR_API_TOKEN=<jwt>
+CHORALE_API_URL=https://chorale.example.com/api
+CHORALE_API_TOKEN=<jwt>
 ```
 
 API server validates JWT on every request. WebSocket connections authenticated on upgrade.
 
-`parlour` CLI reads `PARLOUR_API_TOKEN` from env — already supported in transport resolution.
+`chorale` CLI reads `CHORALE_API_TOKEN` from env — already supported in transport resolution.
 
 ## D3. Web PlatformAdapter
 
@@ -102,7 +102,7 @@ root.render(<PlatformProvider adapter={adapter}><App /></PlatformProvider>)
 - Container spun up on login, kept warm for session duration
 - Idle timeout (30 min) → container hibernated, PTYs saved to disk
 - Resume → container restarted, PTYs re-spawned with `--continue`
-- Persistent storage: S3/R2 for `~/.parlour/chats/`
+- Persistent storage: S3/R2 for `~/.chorale/chats/`
 
 ## D7. File Structure
 
@@ -115,7 +115,7 @@ web/
   vite.config.ts
 cloud/
   src/
-    server.ts            # API server (extends ParlourService)
+    server.ts            # API server (extends ChoraleService)
     pty-cloud.ts         # Container PTY management
     auth.ts              # JWT validation middleware
     storage.ts           # S3/R2 persistence layer

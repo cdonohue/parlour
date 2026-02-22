@@ -1,4 +1,4 @@
-# Parlour
+# Chorale
 
 An app for orchestrating AI coding agents in parallel. Spawn multiple agent sessions, each with its own terminal and git worktree, and let them coordinate via MCP.
 

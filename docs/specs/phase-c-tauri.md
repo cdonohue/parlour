@@ -8,13 +8,13 @@ Status: **Superseded** by [Server + WebSocket Transport](./server-websocket-tran
 
 *Original spec below for reference.*
 
-Replace Electron with Tauri for an ~8x smaller binary (~15MB vs ~120MB). The React app (`@parlour/app`) works unchanged — only the adapter and backend change.
+Replace Electron with Tauri for an ~8x smaller binary (~15MB vs ~120MB). The React app (`@chorale/app`) works unchanged — only the adapter and backend change.
 
 ## Prerequisites
 
-- `@parlour/app` fully extracted behind `PlatformAdapter` (Phase B, done)
-- `@parlour/api-types` shared contract (Phase B, done)
-- `parlour` CLI working against HTTP backend (Phase A, done)
+- `@chorale/app` fully extracted behind `PlatformAdapter` (Phase B, done)
+- `@chorale/api-types` shared contract (Phase B, done)
+- `chorale` CLI working against HTTP backend (Phase A, done)
 
 ## C1. Rust PTY Backend
 
@@ -76,7 +76,7 @@ function createTauriAdapter(): PlatformAdapter {
 
 ## C4. API Server as Sidecar
 
-`parlour` CLI needs the HTTP backend. Two options:
+`chorale` CLI needs the HTTP backend. Two options:
 1. **Sidecar**: Bundle the Node.js API server as a Tauri sidecar process
 2. **Rewrite in Rust**: Implement routes in Axum, sharing Rust state with Tauri commands
 
@@ -84,10 +84,10 @@ Sidecar is faster to ship. Axum is the long-term target.
 
 ## C5. Migration Path
 
-1. `@parlour/app` works unchanged — just swap adapter
+1. `@chorale/app` works unchanged — just swap adapter
 2. Rust backend implements same operations as main process services
 3. Tauri entry point: `createTauriAdapter()` → `initApp(adapter)` → render
-4. `parlour` CLI works unchanged — same HTTP contract
+4. `chorale` CLI works unchanged — same HTTP contract
 
 ## C6. Binary Size
 
@@ -104,7 +104,7 @@ tauri/
       git.rs             # git2 + CLI fallback
       chat_registry.rs   # Chat lifecycle (port of chat-registry.ts)
       api_server.rs      # Axum HTTP backend (or sidecar config)
-      parlour_dirs.rs    # Filesystem structure
+      chorale_dirs.rs    # Filesystem structure
     Cargo.toml
     tauri.conf.json
   src/

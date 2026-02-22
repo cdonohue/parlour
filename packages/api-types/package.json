@@ -1,5 +1,5 @@
 {
-  "name": "@parlour/api-types",
+  "name": "@chorale/api-types",
   "private": true,
   "version": "0.0.1",
   "type": "module",

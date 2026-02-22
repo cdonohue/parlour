@@ -23,7 +23,7 @@
 │  │              │     └──────────────┘                              │
 │  │              │                                                   │
 │  │              │     ┌──────────────┐                              │
-│  │              │────▶│ parlour-dirs │                              │
+│  │              │────▶│ chorale-dirs │                              │
 │  │              │     │              │                              │
 │  │              │     │  - chatDir   │                              │
 │  │              │     │  - agentsMd  │                              │
@@ -361,7 +361,7 @@ dispatch(prompt,      dispatch(prompt,      dispatch(prompt,
  BEFORE (current)                          AFTER (simplified)
  ────────────────                          ──────────────────
 
- ~/.parlour/                               ~/.parlour/
+ ~/.chorale/                               ~/.chorale/
    worktrees/          ← REMOVED             config.json
    chats/{id}/                               bare/
      links/            ← REMOVED             llm-defaults/
@@ -424,7 +424,7 @@ dispatch(prompt,      dispatch(prompt,      dispatch(prompt,
 ## 8. Full Filesystem Example (2 chats active)
 
 ```
-~/.parlour/
+~/.chorale/
 ├── config.json
 │   {
 │     "defaultLlm": "claude",

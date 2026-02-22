@@ -6,7 +6,7 @@ Supersedes: [Phase C: Tauri Desktop Shell](./phase-c-tauri.md)
 
 ## Context
 
-Parlour's backend services live in `desktop/src/main/` and are 90% pure Node.js, but coupled to Electron through 3 points: PtyManager stores `WebContents` for IPC data push, ChatRegistry imports `BrowserWindow`/`nativeTheme` for state push and theme detection, TaskScheduler imports `BrowserWindow` for schedule push.
+Chorale's backend services live in `desktop/src/main/` and are 90% pure Node.js, but coupled to Electron through 3 points: PtyManager stores `WebContents` for IPC data push, ChatRegistry imports `BrowserWindow`/`nativeTheme` for state push and theme detection, TaskScheduler imports `BrowserWindow` for schedule push.
 
 The goal: **one transport (WebSocket), one adapter, everywhere**. PTYs always live behind a WebSocket server. Electron/Tauri spawn it as a sidecar. Browser connects directly. Cloud is just a different URL. Sessions survive app restarts because the server holds them.
 
@@ -26,14 +26,14 @@ The goal: **one transport (WebSocket), one adapter, everywhere**. PTYs always li
                       (HTTP + WebSocket)
                              │
                     ┌────────┴────────┐
-                    │  @parlour/server │
+                    │  @chorale/server │
                     │  HTTP REST + WS  │
                     └─────────────────┘
 ```
 
 - **WebSocket** — PTY data streaming (bidirectional), state push, theme changes, lifecycle events
 - **HTTP REST** — request/response operations (create chat, git ops, file I/O, etc.)
-- **parlour CLI** — unchanged, still uses HTTP REST
+- **chorale CLI** — unchanged, still uses HTTP REST
 
 ## Target Matrix
 
@@ -118,7 +118,7 @@ Move decoupled services into a new standalone server package.
 ### Files that copy verbatim (pure Node.js)
 - `lifecycle.ts`, `logger.ts`, `config-service.ts`, `git-service.ts`
 - `harness-parser.ts`, `harness-tracker.ts`
-- `parlour-service.ts`, `parlour-dirs.ts`
+- `chorale-service.ts`, `chorale-dirs.ts`
 - `cli-config.ts`, `cli-detect.ts`, `claude-config.ts`
 - `file-service.ts`, `forge-service.ts`
 
@@ -126,12 +126,12 @@ Move decoupled services into a new standalone server package.
 - `pty-manager.ts`, `chat-registry.ts`, `task-scheduler.ts`, `api-server.ts`
 
 ### New: `packages/server/src/index.ts`
-- Parse CLI args: `--port` (default 0 = random), `--data-dir` (default `~/.parlour`)
+- Parse CLI args: `--port` (default 0 = random), `--data-dir` (default `~/.chorale`)
 - Create all services, wire dependencies
 - `ChatRegistry.loadFromDisk()`, reconcile PTYs
 - `TaskScheduler.loadAndStart()`
 - Start HTTP server, print `PORT={n}` to stdout
-- Write port to `~/.parlour/.mcp-port`
+- Write port to `~/.chorale/.mcp-port`
 - SIGTERM handler: flush state, destroy PTYs, exit
 
 ### New: `packages/server/src/theme-manager.ts`
@@ -141,7 +141,7 @@ Move decoupled services into a new standalone server package.
 
 ### Verification
 - `node packages/server/dist/index.js` starts, prints port
-- `parlour status` works against standalone server
+- `chorale status` works against standalone server
 - `curl localhost:PORT/api/health` returns OK
 
 ## Phase 3: WebSocket protocol + server
@@ -196,7 +196,7 @@ Add endpoints for all `PlatformAdapter` operations not covered by existing route
 | Chat Registry | `GET /api/chat-registry/state`, `POST .../create`, `POST .../create-child`, `POST .../:id/resume`, `DELETE .../:id`, `PATCH .../:id`, `POST .../:id/retitle` |
 | Git | `GET /api/git/status`, `GET .../diff`, `POST .../stage`, `POST .../commit`, etc. |
 | FS | `GET /api/fs/read`, `POST /api/fs/write` |
-| App | `GET /api/app/data-path`, `GET .../parlour-path`, `GET .../openers`, `POST .../open-in` |
+| App | `GET /api/app/data-path`, `GET .../chorale-path`, `GET .../openers`, `POST .../open-in` |
 | Shell | `POST /api/shell/run` |
 | CLI | `GET /api/cli/detect`, `GET /api/cli/base-defaults` |
 | State | `POST /api/state/save`, `GET /api/state/load` |
@@ -209,7 +209,7 @@ Platform-specific ops (`selectDirectory`, `openExternal`) return 501 from server
 
 ### Verification
 - `curl` each new endpoint, verify responses
-- `parlour-cli` still works (existing routes unchanged)
+- `chorale-cli` still works (existing routes unchanged)
 
 ## Phase 5: `WebSocketPlatformAdapter` (client-side)
 
@@ -228,7 +228,7 @@ Platform-specific ops (`selectDirectory`, `openExternal`) return 501 from server
 
 ### Update `packages/app/dev/main.tsx`
 - Replace `createMockAdapter()` with `createWebSocketAdapter('ws://localhost:PORT')`
-- Read port from env var or query string: `PARLOUR_PORT` or `?port=`
+- Read port from env var or query string: `CHORALE_PORT` or `?port=`
 
 ### Verification
 - Start server: `bun run server`
@@ -285,8 +285,8 @@ Root `package.json` script updates:
 ```json
 {
   "dev": "turbo dev --filter=desktop",
-  "dev:server": "turbo dev:server --filter=@parlour/server",
-  "dev:browser": "turbo dev --filter=@parlour/app",
+  "dev:server": "turbo dev:server --filter=@chorale/server",
+  "dev:browser": "turbo dev --filter=@chorale/app",
   "build": "turbo build",
   "check": "turbo typecheck && bunx vitest run",
   "typecheck": "turbo typecheck",
@@ -306,7 +306,7 @@ Location: `packages/server/src/__tests__/api-server.test.ts`
 Spin up a real `ApiServer` + services in-process (no child process, no network race). Hit every REST endpoint, verify responses.
 
 Test fixture:
-- `beforeAll`: create temp data dir, instantiate PtyManager + ChatRegistry + TaskScheduler + ThemeManager + ParlourService + ApiServer, call `server.start()`
+- `beforeAll`: create temp data dir, instantiate PtyManager + ChatRegistry + TaskScheduler + ThemeManager + ChoraleService + ApiServer, call `server.start()`
 - `afterAll`: `server.stop()`, cleanup temp dir
 
 Coverage:
@@ -317,7 +317,7 @@ Coverage:
 - CLI: detect, defaults
 - State: save → load round-trip
 - Theme: set mode → verify response
-- App: data-path, parlour-path, openers
+- App: data-path, chorale-path, openers
 - Schedule: create → toggle → update → cancel
 - File: write → read round-trip
 
@@ -368,7 +368,7 @@ export default defineConfig({
 })
 ```
 
-`dev:test` script: starts `@parlour/server` on a fixed port, then `@parlour/app` Vite dev server pointing at it. Turbo orchestrates both.
+`dev:test` script: starts `@chorale/server` on a fixed port, then `@chorale/app` Vite dev server pointing at it. Turbo orchestrates both.
 
 Test cases:
 - App loads, sidebar visible
@@ -385,16 +385,16 @@ Test cases:
 
 ### Test layer 4: CLI integration tests
 
-Location: `parlour-cli/src/__tests__/integration.test.ts`
+Location: `chorale-cli/src/__tests__/integration.test.ts`
 
-Start server in-process, write port file, run `parlour` CLI commands against it.
+Start server in-process, write port file, run `chorale` CLI commands against it.
 
 Coverage:
-- `parlour status` → returns health
-- `parlour dispatch "test"` → creates chat, returns ID
-- `parlour list-children` → shows dispatched chat
-- `parlour schedule list` → returns schedules
-- `parlour hook harness:thinking` → emits event
+- `chorale status` → returns health
+- `chorale dispatch "test"` → creates chat, returns ID
+- `chorale list-children` → shows dispatched chat
+- `chorale schedule list` → returns schedules
+- `chorale hook harness:thinking` → emits event
 
 ### Verification
 
@@ -408,7 +408,7 @@ bun run test              # all layers (unit + integration + e2e)
 ## Phase 7: Electron as sidecar launcher
 
 ### `desktop/src/main/index.ts`
-- On `app.whenReady()`: spawn `@parlour/server` as child process
+- On `app.whenReady()`: spawn `@chorale/server` as child process
 - Wait for `PORT=` on stdout
 - Create `WebSocketPlatformAdapter` with Electron-native overrides:
   - `app.selectDirectory` → `dialog.showOpenDialog()`
@@ -460,7 +460,7 @@ const adapter = createWebSocketAdapter(`ws://localhost:${port}`, {
 ```
 
 ### `tauri/src-tauri/src/lib.rs`
-- Spawn `@parlour/server` as sidecar via `@tauri-apps/plugin-shell`
+- Spawn `@chorale/server` as sidecar via `@tauri-apps/plugin-shell`
 - Wait for `PORT=` on stdout
 - Load `tauri://localhost` webview pointing at bundled React app
 - App reads server port from Tauri's `invoke()` bridge
@@ -509,8 +509,8 @@ bun run dev                 # → Electron spawns server, full app
 ### CLI
 ```bash
 bun run dev:server          # server running
-parlour status              # works against standalone server
-parlour dispatch "test"     # creates chat, visible in browser
+chorale status              # works against standalone server
+chorale dispatch "test"     # creates chat, visible in browser
 ```
 
 ### Multi-client

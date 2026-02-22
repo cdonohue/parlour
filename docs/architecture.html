@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Parlour Architecture — Interactive State Machines</title>
+<title>Chorale Architecture — Interactive State Machines</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace; background: #0d1117; color: #c9d1d9; overflow-x: hidden; }
@@ -89,7 +89,7 @@
 <body>
 
 <nav>
-  <span class="title">Parlour</span>
+  <span class="title">Chorale</span>
   <button class="active" data-view="overview">Overview</button>
   <button data-view="chat-lifecycle">Chat Lifecycle</button>
   <button data-view="harness">Harness Tracker</button>
@@ -473,15 +473,15 @@
 
   <h3 style="color:#58a6ff; font-size:13px; margin:16px 0 8px;">Server Startup <span class="tag file">packages/server/src/main.ts</span></h3>
   <div id="startup-server-steps">
-    <div class="flow-step" data-detail="Read settings from parlour-state.json: llmCommand, maxChatDepth, projectRoots, theme mode." onclick="activateStep(this)">
+    <div class="flow-step" data-detail="Read settings from chorale-state.json: llmCommand, maxChatDepth, projectRoots, theme mode." onclick="activateStep(this)">
       <div class="step-num">1</div>
-      <div class="step-content"><h4>Read Settings</h4><p>Load persisted config from parlour-state.json</p></div>
+      <div class="step-content"><h4>Read Settings</h4><p>Load persisted config from chorale-state.json</p></div>
     </div>
     <div class="flow-step" data-detail="WrapperManager isolates CLI environments. ThemeManager tracks dark/light/system mode + resolved value." onclick="activateStep(this)">
       <div class="step-num">2</div>
       <div class="step-content"><h4>Create Managers</h4><p>WrapperManager, ThemeManager, PtyManager</p></div>
     </div>
-    <div class="flow-step" data-detail="ChatRegistry.loadFromDisk() reads all ~/.parlour/chats/*/metadata.json. All chats marked 'done' (no active PTY yet). reconcilePtys() verifies integrity." onclick="activateStep(this)">
+    <div class="flow-step" data-detail="ChatRegistry.loadFromDisk() reads all ~/.chorale/chats/*/metadata.json. All chats marked 'done' (no active PTY yet). reconcilePtys() verifies integrity." onclick="activateStep(this)">
       <div class="step-num">3</div>
       <div class="step-content"><h4>ChatRegistry.loadFromDisk()</h4><p>Load chat metadata, mark all done, reconcile orphans</p></div>
     </div>
@@ -501,7 +501,7 @@
       <div class="step-num">6</div>
       <div class="step-content"><h4>Get Server Port</h4><p>Tauri: invoke(), Browser: URL param</p></div>
     </div>
-    <div class="flow-step" data-detail="createWebSocketAdapter(serverUrl) from @parlour/platform. Establishes ws://localhost:{port}/ws connection. Bidirectional ServerMessage/ClientMessage protocol." onclick="activateStep(this)">
+    <div class="flow-step" data-detail="createWebSocketAdapter(serverUrl) from @chorale/platform. Establishes ws://localhost:{port}/ws connection. Bidirectional ServerMessage/ClientMessage protocol." onclick="activateStep(this)">
       <div class="step-num">7</div>
       <div class="step-content"><h4>WebSocket Connect</h4><p>createWebSocketAdapter → ws://localhost:{port}/ws</p></div>
     </div>
@@ -572,7 +572,7 @@
 
   <div class="info-panel" id="events-info" style="margin-top:16px;">
     <h3>Event Flow</h3>
-    <p>All events logged to <code>~/.parlour/logs/parlour.jsonl</code> (JSON lines, rotated at 5MB). File: <span class="tag file">packages/server/src/lifecycle.ts</span> and <span class="tag file">packages/api-types/src/events.ts</span></p>
+    <p>All events logged to <code>~/.chorale/logs/chorale.jsonl</code> (JSON lines, rotated at 5MB). File: <span class="tag file">packages/server/src/lifecycle.ts</span> and <span class="tag file">packages/api-types/src/events.ts</span></p>
   </div>
 </div>
 
@@ -874,7 +874,7 @@ function showEventFamily(family) {
         <strong>schedule:completed</strong> — scheduled task finished
       </p>`,
     harness: `<h3>Harness Events</h3>
-      <p>Two sources: <strong>CLI hooks</strong> (Claude only — PreToolUse/PostToolUse/Stop hooks call <code>parlour hook</code>) and <strong>Output parser</strong> (all CLIs — heuristic pattern matching on PTY output).</p>
+      <p>Two sources: <strong>CLI hooks</strong> (Claude only — PreToolUse/PostToolUse/Stop hooks call <code>chorale hook</code>) and <strong>Output parser</strong> (all CLIs — heuristic pattern matching on PTY output).</p>
       <p style="margin-top:8px;">
         <strong>harness:tool:start</strong> — tool execution began (includes tool name)<br>
         <strong>harness:tool:end</strong> — tool execution completed<br>
@@ -885,7 +885,7 @@ function showEventFamily(family) {
         <strong>harness:status</strong> — unified state change from HarnessTracker
       </p>`,
     cli: `<h3>CLI Events</h3>
-      <p>Emitted by <code>ApiServer</code> on every incoming agent request via the <code>parlour</code> CLI.</p>
+      <p>Emitted by <code>ApiServer</code> on every incoming agent request via the <code>chorale</code> CLI.</p>
       <p style="margin-top:8px;">
         <strong>cli:dispatch</strong> — agent spawned a child chat<br>
         <strong>cli:status</strong> — agent queried chat status<br>

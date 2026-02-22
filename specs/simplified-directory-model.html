@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Parlour — Simplified Directory Model</title>
+<title>Chorale — Simplified Directory Model</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -819,7 +819,7 @@
 <body>
 
 <div class="header">
-  <h1>Parlour</h1>
+  <h1>Chorale</h1>
   <span class="subtitle">Simplified Directory Model</span>
 </div>
 
@@ -838,7 +838,7 @@
 <div class="panel active" id="panel-filesystem">
   <div class="section-header">
     <h2>Filesystem Layout</h2>
-    <p>Everything lives under ~/.parlour/. Chat dirs own their clones. Delete the dir, everything's gone.</p>
+    <p>Everything lives under ~/.chorale/. Chat dirs own their clones. Delete the dir, everything's gone.</p>
   </div>
 
   <div class="scenario-bar" id="scenario-bar">
@@ -919,7 +919,7 @@
 <div class="panel" id="panel-multicli">
   <div class="section-header">
     <h2>Multi-CLI Configuration</h2>
-    <p>Parlour generates CLI-specific config at chat creation. AGENTS.md is canonical. Click each CLI to see what gets generated.</p>
+    <p>Chorale generates CLI-specific config at chat creation. AGENTS.md is canonical. Click each CLI to see what gets generated.</p>
   </div>
   <div class="cli-grid" id="cli-grid"></div>
 
@@ -932,7 +932,7 @@
       <div class="multicli-flow-arrow">&rarr;</div>
       <div class="multicli-flow-step" style="color:var(--cyan)">Generate MCP config in CLI format</div>
       <div class="multicli-flow-arrow">&rarr;</div>
-      <div class="multicli-flow-step" style="color:var(--green)">Auto-approve Parlour tools</div>
+      <div class="multicli-flow-step" style="color:var(--green)">Auto-approve Chorale tools</div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;">
@@ -947,7 +947,7 @@
       <div class="settings-mock">
         <div class="settings-mock-header">Settings &mdash; Global &amp; Custom</div>
         <div class="settings-mock-row"><span class="label">Global MCP Servers</span><span class="value">github, sentry</span></div>
-        <div class="settings-mock-row"><span class="label">Parlour MCP Port</span><span class="value">auto</span></div>
+        <div class="settings-mock-row"><span class="label">Chorale MCP Port</span><span class="value">auto</span></div>
         <div class="settings-mock-row"><span class="label">Custom CLIs</span><span class="value">+ Add custom CLI...</span></div>
         <div class="settings-mock-row"><span class="label">Detected CLIs</span><span class="value" id="detected-clis">claude, gemini, opencode</span></div>
       </div>
@@ -1106,7 +1106,7 @@ tabs.forEach(tab => {
 // ── Filesystem Tree ──
 const scenarios = {
   single: {
-    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+    name: '~/.chorale/', cls: 'dir', expanded: true, children: [
       { name: 'bare/', cls: 'dir', expanded: true, comment: 'shared clone cache', children: [
         { name: 'grove.git', cls: 'dir', comment: 'bare clone from GitHub' },
       ]},
@@ -1134,7 +1134,7 @@ const scenarios = {
     ]
   },
   multi: {
-    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+    name: '~/.chorale/', cls: 'dir', expanded: true, children: [
       { name: 'bare/', cls: 'dir', expanded: true, comment: 'shared clone cache', children: [
         { name: 'grove.git', cls: 'dir' },
         { name: 'api-server.git', cls: 'dir' },
@@ -1161,7 +1161,7 @@ const scenarios = {
     ]
   },
   child: {
-    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+    name: '~/.chorale/', cls: 'dir', expanded: true, children: [
       { name: 'bare/', cls: 'dir', children: [
         { name: 'grove.git', cls: 'dir' },
       ]},
@@ -1189,7 +1189,7 @@ const scenarios = {
     ]
   },
   setup: {
-    name: '~/.parlour/', cls: 'dir', expanded: true, children: [
+    name: '~/.chorale/', cls: 'dir', expanded: true, children: [
       { name: 'bare/', cls: 'dir', children: [
         { name: 'grove.git', cls: 'dir' },
       ]},
@@ -1288,12 +1288,12 @@ const lifecycleSteps = [
       title: 'Create Chat',
       commands: [
         '# Create chat directory',
-        'mkdir -p ~/.parlour/chats/{id}/.claude',
+        'mkdir -p ~/.chorale/chats/{id}/.claude',
         '',
         '# Write config files',
         'write AGENTS.md        # MCP tool docs',
         'write .claude/settings.local.json',
-        'write .mcp.json        # Parlour MCP endpoint',
+        'write .mcp.json        # Chorale MCP endpoint',
       ],
       note: 'No project yet. Just a chat directory with config. Skills/ copied from defaults.',
     },
@@ -1306,7 +1306,7 @@ const lifecycleSteps = [
       title: 'Spawn PTY',
       commands: [
         '# PTY starts in chat directory',
-        'cd ~/.parlour/chats/{id}/',
+        'cd ~/.chorale/chats/{id}/',
         'exec claude    # or gemini, chatgpt, etc.',
         '',
         '# LLM reads AGENTS.md automatically',
@@ -1325,7 +1325,7 @@ const lifecycleSteps = [
       commands: [
         '# LLM calls open_dir({ path_or_url: "~/Projects/grove" })',
         '',
-        '# Parlour does:',
+        '# Chorale does:',
         'git clone --local ~/Projects/grove chats/{id}/projects/grove',
         'git -C projects/grove remote set-url origin <github-url>',
         '',
@@ -1367,10 +1367,10 @@ const lifecycleSteps = [
       title: 'Resume',
       commands: [
         '# Chat dir persists with projects/ intact',
-        'ls ~/.parlour/chats/{id}/projects/grove/  # still there',
+        'ls ~/.chorale/chats/{id}/projects/grove/  # still there',
         '',
         '# Re-spawn PTY in same chat dir',
-        'cd ~/.parlour/chats/{id}/',
+        'cd ~/.chorale/chats/{id}/',
         'exec claude --continue',
         '',
         '# LLM reads AGENTS.md, sees project paths',
@@ -1387,7 +1387,7 @@ const lifecycleSteps = [
       title: 'Delete Chat',
       commands: [
         '# One command. Everything gone.',
-        'rm -rf ~/.parlour/chats/{id}/',
+        'rm -rf ~/.chorale/chats/{id}/',
         '',
         '# That\'s it.',
         '# No worktree pruning.',
@@ -1474,7 +1474,7 @@ const toolGroups = [
         notes: ['Derived from filesystem + git', 'No registry needed'] },
       { name: 'save_project_setup', brief: 'Persist setup files for future clones of this project',
         sig: 'save_project_setup({ project, files })', ret: 'ok',
-        notes: ['Copies files from current clone to ~/.parlour/project-setup/{name}/files/', 'Future clones auto-get these files', 'LLM learns this, user never touches it'] },
+        notes: ['Copies files from current clone to ~/.chorale/project-setup/{name}/files/', 'Future clones auto-get these files', 'LLM learns this, user never touches it'] },
     ]
   },
   {
@@ -1568,7 +1568,7 @@ comparison.innerHTML = `
       <div class="comparison-item"><span class="icon">-</span><div><div class="label">CHAT_REGISTRY_ATTACH_REPO</div></div></div>
 
       <div class="comparison-category">Filesystem</div>
-      <div class="comparison-item"><span class="icon">-</span><div><div class="label">~/.parlour/worktrees/</div></div></div>
+      <div class="comparison-item"><span class="icon">-</span><div><div class="label">~/.chorale/worktrees/</div></div></div>
       <div class="comparison-item"><span class="icon">-</span><div><div class="label">chats/{id}/links/</div><div class="desc">Replaced by projects/</div></div></div>
       <div class="comparison-item"><span class="icon">-</span><div><div class="label">All symlink management</div></div></div>
 
@@ -1614,7 +1614,7 @@ comparison.innerHTML = `
       <div class="comparison-item"><span class="icon">+</span><div><div class="label">rm -rf chats/{id}/</div><div class="desc">Everything gone. No pruning, no cleanup.</div></div></div>
 
       <div class="comparison-category">Project Setup</div>
-      <div class="comparison-item"><span class="icon">+</span><div><div class="label">~/.parlour/project-setup/</div><div class="desc">LLM-learned, auto-applied to new clones</div></div></div>
+      <div class="comparison-item"><span class="icon">+</span><div><div class="label">~/.chorale/project-setup/</div><div class="desc">LLM-learned, auto-applied to new clones</div></div></div>
 
       <div class="comparison-category">Automations</div>
       <div class="comparison-item"><span class="icon">+</span><div><div class="label">Simple schedule config</div><div class="desc">Just { prompt, trigger, project?, llm? }. Fresh clone each run.</div></div></div>
@@ -1744,23 +1744,23 @@ const cliData = [
     name: 'Claude Code', icon: 'C', color: 'var(--orange)',
     status: 'detected', detect: 'which claude',
     mcpFile: '.mcp.json', instrFile: 'CLAUDE.md', permFile: '.claude/settings.local.json',
-    mcpFormat: 'JSON — { mcpServers: { parlour: { type: "http", url } } }',
+    mcpFormat: 'JSON — { mcpServers: { chorale: { type: "http", url } } }',
     permFormat: '{ permissions: { allow: [...] } }',
     instrNote: 'Symlink to AGENTS.md',
     files: [
       { text: 'chats/{id}/', cls: 'cf-dir' },
       { text: '  AGENTS.md', cls: 'cf-file', comment: 'canonical' },
       { text: '  CLAUDE.md', cls: 'cf-link', comment: '→ symlink to AGENTS.md' },
-      { text: '  .mcp.json', cls: 'cf-file', comment: 'Parlour MCP endpoint' },
+      { text: '  .mcp.json', cls: 'cf-file', comment: 'Chorale MCP endpoint' },
       { text: '  .claude/', cls: 'cf-dir' },
-      { text: '    settings.local.json', cls: 'cf-file', comment: 'auto-approve Parlour tools' },
+      { text: '    settings.local.json', cls: 'cf-file', comment: 'auto-approve Chorale tools' },
     ],
   },
   {
     name: 'Gemini CLI', icon: 'G', color: 'var(--blue)',
     status: 'detected', detect: 'which gemini',
     mcpFile: '.gemini/settings.json', instrFile: 'GEMINI.md', permFile: '.gemini/settings.json (trust)',
-    mcpFormat: 'JSON — { mcpServers: { parlour: { httpUrl, trust: true } } }',
+    mcpFormat: 'JSON — { mcpServers: { chorale: { httpUrl, trust: true } } }',
     permFormat: 'trust: true per server',
     instrNote: 'Symlink to AGENTS.md',
     files: [
@@ -1789,7 +1789,7 @@ const cliData = [
     name: 'OpenCode', icon: 'O', color: 'var(--purple)',
     status: 'detected', detect: 'which opencode',
     mcpFile: 'opencode.json', instrFile: 'AGENTS.md', permFile: 'opencode.json (permission)',
-    mcpFormat: 'JSON — { mcp: { parlour: { type: "remote", url } } }',
+    mcpFormat: 'JSON — { mcp: { chorale: { type: "remote", url } } }',
     permFormat: '{ permission: { "*": "allow" } }',
     instrNote: 'Reads AGENTS.md natively',
     files: [
@@ -1802,23 +1802,23 @@ const cliData = [
     name: 'Cursor', icon: 'U', color: 'var(--cyan)',
     status: 'detected', detect: 'IDE detection',
     mcpFile: '.cursor/mcp.json', instrFile: '.cursor/rules/', permFile: '—',
-    mcpFormat: 'JSON — { mcpServers: { parlour: { url } } }',
+    mcpFormat: 'JSON — { mcpServers: { chorale: { url } } }',
     permFormat: 'N/A (IDE-managed)',
-    instrNote: 'AGENTS.md content written to .cursor/rules/parlour.mdc',
+    instrNote: 'AGENTS.md content written to .cursor/rules/chorale.mdc',
     files: [
       { text: 'chats/{id}/', cls: 'cf-dir' },
       { text: '  AGENTS.md', cls: 'cf-file', comment: 'canonical' },
       { text: '  .cursor/', cls: 'cf-dir' },
-      { text: '    mcp.json', cls: 'cf-file', comment: 'Parlour MCP endpoint' },
+      { text: '    mcp.json', cls: 'cf-file', comment: 'Chorale MCP endpoint' },
       { text: '    rules/', cls: 'cf-dir' },
-      { text: '      parlour.mdc', cls: 'cf-file', comment: 'generated from AGENTS.md' },
+      { text: '      chorale.mdc', cls: 'cf-file', comment: 'generated from AGENTS.md' },
     ],
   },
   {
     name: 'Custom CLI', icon: '?', color: 'var(--text-muted)',
     status: 'manual', detect: 'user-configured',
     mcpFile: '{name}.mcp.json', instrFile: 'AGENTS.md', permFile: '—',
-    mcpFormat: 'User-defined template with {{parlour_mcp_url}} substitution',
+    mcpFormat: 'User-defined template with {{chorale_mcp_url}} substitution',
     permFormat: 'N/A (user manages)',
     instrNote: 'AGENTS.md or user-specified instructionsFile',
     files: [

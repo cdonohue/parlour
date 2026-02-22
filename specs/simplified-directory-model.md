@@ -9,13 +9,13 @@ Replace the current attach/link/worktree/symlink system with a simpler model: ch
 Users interact with **3 things**: Chats, Projects (implicitly), Schedules.
 
 - **Chat** — a conversation with an LLM. Optionally references projects.
-- **Project** — not a top-level UI concept. Just something mentioned in conversation. Parlour manages clones/caches invisibly.
+- **Project** — not a top-level UI concept. Just something mentioned in conversation. Chorale manages clones/caches invisibly.
 - **Schedule** — a prompt on a cron or one-time trigger.
 
 ## Filesystem Layout
 
 ```
-~/.parlour/
+~/.chorale/
   config.json                        # global settings, keybindings, global MCP servers
   bare/                              # shared bare clone cache
     grove.git
@@ -86,9 +86,9 @@ For local-only projects (no remote), `origin` points to the user's local copy. E
 The universal interface. Every LLM reads markdown. No --add-dir, no Claude-specific flags.
 
 ```markdown
-# Parlour
+# Chorale
 
-You are running inside Parlour, a desktop app for orchestrating parallel AI agents.
+You are running inside Chorale, a desktop app for orchestrating parallel AI agents.
 
 ## MCP Tools
 ...
@@ -105,7 +105,7 @@ Updated when `open_dir` is called mid-session (for resume scenarios). The LLM ge
 
 ## Multi-CLI Configuration
 
-Parlour supports multiple LLM CLIs. The MCP server is Parlour's HTTP endpoint — universal across all CLIs. At chat creation, Parlour generates CLI-specific config files.
+Chorale supports multiple LLM CLIs. The MCP server is Chorale's HTTP endpoint — universal across all CLIs. At chat creation, Chorale generates CLI-specific config files.
 
 ### The problem
 
@@ -113,7 +113,7 @@ Parlour supports multiple LLM CLIs. The MCP server is Parlour's HTTP endpoint �
 
 ### The solution
 
-Parlour generates the right files based on the chat's LLM. The MCP server schema is nearly identical across CLIs — all use `{ command, args, env }` for stdio or `{ url }` for HTTP. Only the file path and wrapper format differ.
+Chorale generates the right files based on the chat's LLM. The MCP server schema is nearly identical across CLIs — all use `{ command, args, env }` for stdio or `{ url }` for HTTP. Only the file path and wrapper format differ.
 
 ### Config matrix
 
@@ -128,9 +128,9 @@ Parlour generates the right files based on the chat's LLM. The MCP server schema
 | Windsurf | `.codeium/windsurf/mcp_config.json` | — | — |
 | Custom | `{name}.mcp.json` | `AGENTS.md` | — |
 
-### What Parlour generates per chat
+### What Chorale generates per chat
 
-AGENTS.md is always the canonical file. CLI-specific instruction files are symlinks to it. MCP config is generated from a single source — Parlour's MCP endpoint info — into the format each CLI expects.
+AGENTS.md is always the canonical file. CLI-specific instruction files are symlinks to it. MCP config is generated from a single source — Chorale's MCP endpoint info — into the format each CLI expects.
 
 For a Claude chat:
 ```
@@ -185,8 +185,8 @@ Users can register any CLI that supports MCP:
         "file": "my-agent.json",
         "template": {
           "servers": {
-            "parlour": {
-              "url": "{{parlour_mcp_url}}"
+            "chorale": {
+              "url": "{{chorale_mcp_url}}"
             }
           }
         }
@@ -196,21 +196,21 @@ Users can register any CLI that supports MCP:
 }
 ```
 
-Parlour substitutes `{{parlour_mcp_url}}` at chat creation. The `template` is the MCP config shape the CLI expects — Parlour writes it with the real endpoint. `instructionsFile` tells Parlour what to symlink AGENTS.md to (or just use AGENTS.md directly if the CLI reads it).
+Chorale substitutes `{{chorale_mcp_url}}` at chat creation. The `template` is the MCP config shape the CLI expects — Chorale writes it with the real endpoint. `instructionsFile` tells Chorale what to symlink AGENTS.md to (or just use AGENTS.md directly if the CLI reads it).
 
-This makes Parlour forward-compatible with any future LLM CLI without code changes.
+This makes Chorale forward-compatible with any future LLM CLI without code changes.
 
-### Parlour as the MCP server
+### Chorale as the MCP server
 
-Since Parlour IS the HTTP MCP server, every CLI connects to the same endpoint. The config files just point to `http://localhost:{port}?caller={chatId}`. Permissions and tool availability are controlled server-side by Parlour, not by CLI-specific permission files.
+Since Chorale IS the HTTP MCP server, every CLI connects to the same endpoint. The config files just point to `http://localhost:{port}?caller={chatId}`. Permissions and tool availability are controlled server-side by Chorale, not by CLI-specific permission files.
 
-CLI permission files (`.claude/settings.local.json`, Gemini's `trust`, etc.) are set to auto-approve Parlour's MCP tools. The real access control lives in Parlour.
+CLI permission files (`.claude/settings.local.json`, Gemini's `trust`, etc.) are set to auto-approve Chorale's MCP tools. The real access control lives in Chorale.
 
 ### Global configuration
 
 ```
-~/.parlour/
-  config.json                  # global Parlour settings (+ customLlms, globalMcpServers)
+~/.chorale/
+  config.json                  # global Chorale settings (+ customLlms, globalMcpServers)
   llm-defaults/                # per-CLI config templates
     claude/
       settings.local.json
@@ -222,7 +222,7 @@ CLI permission files (`.claude/settings.local.json`, Gemini's `trust`, etc.) are
       opencode.json
 ```
 
-Users configure LLM-specific defaults once in `llm-defaults/`. Parlour copies + merges these into each new chat dir. Users who only use Claude never touch this — sensible defaults ship out of the box.
+Users configure LLM-specific defaults once in `llm-defaults/`. Chorale copies + merges these into each new chat dir. Users who only use Claude never touch this — sensible defaults ship out of the box.
 
 ### Settings UI
 
@@ -248,7 +248,7 @@ Settings panel gains an **LLM Defaults** section:
 │  Custom LLM CLIs                                 │
 │    [+ Add custom CLI...]                         │
 │                                                  │
-│  Parlour MCP Server                              │
+│  Chorale MCP Server                              │
 │    Port: [auto]                                  │
 │    Tool access: [All tools ▾]                    │
 │                                                  │
@@ -259,12 +259,12 @@ Only show CLIs that are installed (detect via `which claude`, `which gemini`, `w
 
 ## Per-Project Setup
 
-Projects often need gitignored files (`.env`, config files) to function. Parlour handles this automatically via learned setup configs.
+Projects often need gitignored files (`.env`, config files) to function. Chorale handles this automatically via learned setup configs.
 
 ### Storage
 
 ```
-~/.parlour/project-setup/{name}/
+~/.chorale/project-setup/{name}/
   files/
     .env
     config/user.json
@@ -282,7 +282,7 @@ The LLM learns them. Flow:
 4. LLM calls `save_project_setup` MCP tool to persist the file for future clones
 5. Every future clone of that project gets the files automatically
 
-Users never touch `~/.parlour/project-setup/` directly.
+Users never touch `~/.chorale/project-setup/` directly.
 
 ## MCP Tools (10 total)
 
@@ -363,7 +363,7 @@ Users never touch `~/.parlour/project-setup/` directly.
 - All attach-related IPC channels (`CHAT_ATTACH_WORKTREE`, `CHAT_REGISTRY_ATTACH_REPO`)
 
 ### Filesystem
-- `~/.parlour/worktrees/` — gone (clones live under chat dirs)
+- `~/.chorale/worktrees/` — gone (clones live under chat dirs)
 - `chats/{id}/links/` — gone (replaced by `projects/`)
 - All symlink creation/management
 
@@ -470,7 +470,7 @@ scheduler.create({
 })
 ```
 
-- `project` (optional) — project path or name. Parlour clones it into the scheduled chat's `projects/` at execution time.
+- `project` (optional) — project path or name. Chorale clones it into the scheduled chat's `projects/` at execution time.
 - No `dirs`. If the prompt needs multiple projects, the prompt itself includes `open_dir` calls — the LLM handles it.
 - Each run gets a fresh clone. No stale state from previous runs.
 
@@ -505,7 +505,7 @@ Schedule "dep-check"
 
 ## Skills Directory
 
-`chats/{id}/skills/` contains canned workflow files shipped by Parlour:
+`chats/{id}/skills/` contains canned workflow files shipped by Chorale:
 - `pr-review.md`
 - `code-audit.md`
 - etc.
@@ -620,8 +620,8 @@ Some things live above individual chats — user-level settings that affect all 
 ### Filesystem
 
 ```
-~/.parlour/
-  config.json                  # Parlour app settings
+~/.chorale/
+  config.json                  # Chorale app settings
   llm-defaults/                # per-CLI config templates
     claude/
       settings.local.json
@@ -664,17 +664,17 @@ Users may have MCP servers they want available in every chat (GitHub, Sentry, Sl
 }
 ```
 
-At chat creation, Parlour merges global MCP servers into the chat's CLI-specific MCP config alongside Parlour's own MCP endpoint. Per-chat overrides can disable specific global servers.
+At chat creation, Chorale merges global MCP servers into the chat's CLI-specific MCP config alongside Chorale's own MCP endpoint. Per-chat overrides can disable specific global servers.
 
 ### User-installed CLI tools
 
-Things like `gh`, `claude`, `gemini`, `codex` are system-level — installed by the user, not managed by Parlour. Parlour detects what's available (`which` checks) and adapts:
+Things like `gh`, `claude`, `gemini`, `codex` are system-level — installed by the user, not managed by Chorale. Chorale detects what's available (`which` checks) and adapts:
 
 - **LLM selector**: only shows installed CLIs
 - **MCP config**: only generates configs for the selected CLI
 - **Skills**: can reference CLI-specific capabilities in skill files
 
-Parlour doesn't install or manage these tools. It adapts to what's present.
+Chorale doesn't install or manage these tools. It adapts to what's present.
 
 ### Settings UI integration
 
