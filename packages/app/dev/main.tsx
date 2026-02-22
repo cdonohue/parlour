@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createWebSocketAdapter, PlatformProvider } from '@parlour/platform'
-import { App, initApp, hydrateFromDisk } from '@parlour/app'
+import { createWebSocketAdapter, PlatformProvider } from '@chorale/platform'
+import { App, initApp, hydrateFromDisk } from '@chorale/app'
 import './global.css'
 
 const params = new URLSearchParams(window.location.search)

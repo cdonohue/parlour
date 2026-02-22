@@ -4,9 +4,9 @@ import { HotkeysProvider } from '@tanstack/react-hotkeys'
 import 'allotment/dist/style.css'
 import { useAppStore } from './store/app-store'
 import { resolveLlmCommand } from './store/types'
-import { usePlatform } from '@parlour/platform'
-import { HeaderBar, NewChatDialog, Button } from '@parlour/ui'
-import type { NewChatConfig } from '@parlour/ui'
+import { usePlatform } from '@chorale/platform'
+import { HeaderBar, NewChatDialog, Button } from '@chorale/ui'
+import type { NewChatConfig } from '@chorale/ui'
 import {
   Sidebar,
   TerminalPanel,

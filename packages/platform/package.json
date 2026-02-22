@@ -1,5 +1,5 @@
 {
-  "name": "@parlour/platform",
+  "name": "@chorale/platform",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -11,7 +11,7 @@
     "./testing/mock-adapter": "./src/testing/mock-adapter.ts"
   },
   "dependencies": {
-    "@parlour/api-types": "workspace:*"
+    "@chorale/api-types": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^19.0.0"

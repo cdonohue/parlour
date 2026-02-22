@@ -10,11 +10,11 @@ export type {
   CheckStatus,
   PrInfo,
   TimeGroup,
-} from '@parlour/ui'
+} from '@chorale/ui'
 
-export { DEFAULT_SETTINGS, getTimeGroup, TIME_GROUP_LABELS } from '@parlour/ui'
+export { DEFAULT_SETTINGS, getTimeGroup, TIME_GROUP_LABELS } from '@chorale/ui'
 
-import type { Chat, Settings, Toast, ConfirmDialogState } from '@parlour/ui'
+import type { Chat, Settings, Toast, ConfirmDialogState } from '@chorale/ui'
 
 export function resolveLlmCommand(settings: { llmCommand: string }, ...overrides: (string | undefined | null)[]): string {
   for (const o of overrides) {

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { usePlatform } from '@parlour/platform'
+import { usePlatform } from '@chorale/platform'
 import { useAppStore } from '../store/app-store'
 
 export function useNotifications(): void {

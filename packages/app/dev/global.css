@@ -1,4 +1,4 @@
-@import '@parlour/ui/styles/design-tokens.css';
+@import '@chorale/ui/styles/design-tokens.css';
 
 *, *::before, *::after {
   box-sizing: border-box;

@@ -10,7 +10,7 @@ type Story = StoryObj<typeof WorkspaceDialog>
 
 export const Default: Story = {
   args: {
-    project: { name: 'parlour', repoPath: '/Users/dev/parlour' },
+    project: { name: 'chorale', repoPath: '/Users/dev/chorale' },
     branchPrefix: 'chad/',
     onConfirm: (name, branch, isNew, base) => console.log('Confirm:', { name, branch, isNew, base }),
     onCancel: () => console.log('Cancel'),

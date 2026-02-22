@@ -37,7 +37,7 @@ export interface AppAdapter {
   selectDirectory(): Promise<string | null>
   addProjectPath(dirPath: string): Promise<void>
   getDataPath(): Promise<string>
-  getParlourPath(): Promise<string>
+  getChoralePath(): Promise<string>
   discoverOpeners(): Promise<Array<{ id: string; name: string }>>
   openIn(openerId: string, dirPath: string): Promise<void>
 }

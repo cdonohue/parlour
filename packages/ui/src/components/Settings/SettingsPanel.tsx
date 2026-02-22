@@ -265,7 +265,7 @@ export function SettingsPanel({
             <div className={styles.section}>
               <div className={styles.sectionTitle}>Chat Config</div>
               <div className={styles.defaultsDescription}>
-                Written to each new chat directory on creation. Parlour also injects MCP server config and agent instructions automatically.
+                Written to each new chat directory on creation. Chorale also injects MCP server config and agent instructions automatically.
               </div>
 
               {installedClis.map((cli) => {

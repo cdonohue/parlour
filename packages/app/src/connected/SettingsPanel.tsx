@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SettingsPanel as SettingsPanelUI } from '@parlour/ui'
-import type { HotkeyAction } from '@parlour/ui'
-import { usePlatform } from '@parlour/platform'
+import { SettingsPanel as SettingsPanelUI } from '@chorale/ui'
+import type { HotkeyAction } from '@chorale/ui'
+import { usePlatform } from '@chorale/platform'
 import { useAppStore } from '../store/app-store'
 
 const CLI_DEFAULTS_FILES: Record<string, string> = {
@@ -27,15 +27,15 @@ export function SettingsPanel() {
   useEffect(() => {
     if (installedClis.length === 0) return
     Promise.all([
-      platform.app.getParlourPath(),
+      platform.app.getChoralePath(),
       platform.cli.baseDefaults(),
-    ]).then(async ([parlourPath, baseDefaults]) => {
+    ]).then(async ([choralePath, baseDefaults]) => {
       const defaults: Record<string, string> = {}
       for (const cli of installedClis) {
         const filename = CLI_DEFAULTS_FILES[cli]
         if (!filename) continue
         try {
-          const content = await platform.fs.readFile(`${parlourPath}/llm-defaults/${cli}/${filename}`)
+          const content = await platform.fs.readFile(`${choralePath}/llm-defaults/${cli}/${filename}`)
           defaults[cli] = (content as string).trim() ? (content as string) : baseDefaults[cli] ?? ''
         } catch {
           defaults[cli] = baseDefaults[cli] ?? ''
@@ -52,10 +52,10 @@ export function SettingsPanel() {
   }, [settings.keybindings, updateSettings])
 
   const onSaveLlmDefaults = useCallback(async (cli: string, content: string) => {
-    const parlourPath = await platform.app.getParlourPath()
+    const choralePath = await platform.app.getChoralePath()
     const filename = CLI_DEFAULTS_FILES[cli]
     if (!filename) return
-    await platform.fs.writeFile(`${parlourPath}/llm-defaults/${cli}/${filename}`, content)
+    await platform.fs.writeFile(`${choralePath}/llm-defaults/${cli}/${filename}`, content)
     setLlmDefaults((prev) => ({ ...prev, [cli]: content }))
   }, [platform])
 

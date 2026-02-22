@@ -10,7 +10,7 @@ export default meta
 type Story = StoryObj<typeof DecryptedText>
 
 export const HoverToReveal: Story = {
-  args: { text: 'Parlour', speed: 50, animateOn: 'hover' },
+  args: { text: 'Chorale', speed: 50, animateOn: 'hover' },
 }
 
 export const RevealOnView: Story = {

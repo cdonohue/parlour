@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { Sidebar as SidebarUI } from '@parlour/ui'
+import { Sidebar as SidebarUI } from '@chorale/ui'
 import { useAppStore } from '../store/app-store'
 import { resolveLlmCommand } from '../store/types'
 import { useSchedules } from '../hooks/useSchedules'

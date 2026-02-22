@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
-import { TasksPanel as TasksPanelUI } from '@parlour/ui'
-import { usePlatform } from '@parlour/platform'
+import { TasksPanel as TasksPanelUI } from '@chorale/ui'
+import { usePlatform } from '@chorale/platform'
 import { useAppStore } from '../store/app-store'
 import { resolveLlmCommand } from '../store/types'
 import { useSchedules } from '../hooks/useSchedules'
