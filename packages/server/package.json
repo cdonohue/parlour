@@ -14,13 +14,12 @@
   },
   "scripts": {
     "predev": "lsof -ti :3000 | xargs kill 2>/dev/null || true",
-    "dev": "tsx --watch src/main.ts --port 3000",
+    "dev": "bun --watch src/main.ts --port 3000",
     "typecheck": "tsc --noEmit",
     "test:integration": "vitest run src/__tests__/"
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
-    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }
