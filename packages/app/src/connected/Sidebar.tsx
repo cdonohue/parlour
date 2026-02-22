@@ -5,23 +5,21 @@ import { resolveLlmCommand } from '../store/types'
 import { useSchedules } from '../hooks/useSchedules'
 
 export function Sidebar() {
-  const {
-    chats,
-    activeChatId,
-    contentView,
-    unreadChatIds,
-    settings,
-    navigateToChat,
-    deleteChat,
-    retitleChat,
-    pinChat,
-    unpinChat,
-    createNewChat,
-    createChildChat,
-    toggleSettings,
-    toggleTasks,
-    openNewChatDialog,
-  } = useAppStore()
+  const chats = useAppStore((s) => s.chats)
+  const activeChatId = useAppStore((s) => s.activeChatId)
+  const contentView = useAppStore((s) => s.contentView)
+  const unreadChatIds = useAppStore((s) => s.unreadChatIds)
+  const settings = useAppStore((s) => s.settings)
+  const navigateToChat = useAppStore((s) => s.navigateToChat)
+  const deleteChat = useAppStore((s) => s.deleteChat)
+  const retitleChat = useAppStore((s) => s.retitleChat)
+  const pinChat = useAppStore((s) => s.pinChat)
+  const unpinChat = useAppStore((s) => s.unpinChat)
+  const createNewChat = useAppStore((s) => s.createNewChat)
+  const createChildChat = useAppStore((s) => s.createChildChat)
+  const toggleSettings = useAppStore((s) => s.toggleSettings)
+  const toggleTasks = useAppStore((s) => s.toggleTasks)
+  const openNewChatDialog = useAppStore((s) => s.openNewChatDialog)
 
   const schedules = useSchedules()
 

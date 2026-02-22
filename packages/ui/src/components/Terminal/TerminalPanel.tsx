@@ -114,8 +114,14 @@ export function TerminalPanel({ ptyId, active, fontSize, fontFamily, terminalThe
         }
         requestAnimationFrame(tryFit)
 
+        let resizeRaf: number | null = null
         const resizeObserver = new ResizeObserver(() => {
-          if (!disposed) fitAddon.fit()
+          if (disposed) return
+          if (resizeRaf) cancelAnimationFrame(resizeRaf)
+          resizeRaf = requestAnimationFrame(() => {
+            resizeRaf = null
+            if (!disposed) fitAddon.fit()
+          })
         })
         resizeObserver.observe(termDiv)
 
