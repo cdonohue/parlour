@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/tags/tauri-v2.2.0/crates/tauri-cli/schema.json",
-  "productName": "Parlour",
-  "identifier": "com.parlour.app",
+  "productName": "Chorale",
+  "identifier": "com.chorale.app",
   "version": "0.1.0",
   "build": {
     "frontendDist": "../dist",

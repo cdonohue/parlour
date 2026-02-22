@@ -14,10 +14,10 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@parlour/platform": ["../packages/platform/src/index.ts"],
-      "@parlour/app": ["../packages/app/src/index.ts"],
-      "@parlour/ui": ["../packages/ui/src/index.ts"],
-      "@parlour/ui/*": ["../packages/ui/src/*"]
+      "@chorale/platform": ["../packages/platform/src/index.ts"],
+      "@chorale/app": ["../packages/app/src/index.ts"],
+      "@chorale/ui": ["../packages/ui/src/index.ts"],
+      "@chorale/ui/*": ["../packages/ui/src/*"]
     }
   },
   "include": ["src"]
