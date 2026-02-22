@@ -55,6 +55,7 @@ Commands:
     --branch <name>                Project branch
   status [chatId] [--follow]     Check chat status (--follow for live SSE stream)
   list-children                  List child chats
+  read-screen [chatId] [--lines N]  Read full PTY output
   report <message>               Send message to parent
   send <chatId> <message>        Send message to any chat
   schedule <prompt> --cron <exp> Create scheduled task
@@ -128,6 +129,26 @@ async function status(args: string[]): Promise<void> {
       }
     }
   }
+}
+
+async function readScreen(args: string[]): Promise<void> {
+  const linesFlag = extractFlag(args, '--lines')
+  const chatId = args[0] || CHAT_ID
+  if (!chatId) {
+    process.stderr.write('Usage: parlour read-screen [chatId] [--lines N]\n')
+    process.exit(1)
+  }
+  const qs = new URLSearchParams({ caller: CHAT_ID })
+  if (linesFlag) qs.set('lines', linesFlag)
+  const url = `${BASE_URL}/api/read-screen/${chatId}?${qs}`
+  const res = await fetch(url)
+  if (!res.ok) {
+    const text = await res.text()
+    process.stderr.write(`Error ${res.status}: ${text}\n`)
+    process.exit(1)
+  }
+  const result = await res.json() as { buffer: string }
+  process.stdout.write(result.buffer)
 }
 
 async function listChildren(): Promise<void> {
@@ -261,6 +282,7 @@ const [command, ...args] = process.argv.slice(2)
 switch (command) {
   case 'dispatch': await dispatch(args); break
   case 'status': await status(args); break
+  case 'read-screen': await readScreen(args); break
   case 'list-children': await listChildren(); break
   case 'report': await report(args); break
   case 'send': await send(args); break

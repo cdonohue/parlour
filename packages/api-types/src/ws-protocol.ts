@@ -19,4 +19,5 @@ export type ServerMessage =
   | { type: 'state:chats'; chats: unknown[] }
   | { type: 'state:schedules'; schedules: unknown[] }
   | { type: 'event'; event: LifecycleEvent }
+  | { type: 'notification'; chatId: string; chatName: string; status: string }
   | { type: 'theme:resolved'; resolved: 'dark' | 'light' }

@@ -38,6 +38,7 @@ export function ChatItem({
 }: ChatItemProps) {
   const isRoot = depth === 0
   const depthClass = depth > 0 ? styles.nestedChat : ''
+  const dotStatus = (chat.ptyId && chat.harnessStatus && chat.harnessStatus !== 'idle') ? chat.harnessStatus : chat.status
 
   return (
     <motion.div
@@ -58,7 +59,9 @@ export function ChatItem({
         <VStack flex="1" gap={2} className={styles.chatContent}>
           <TypewriterText text={chat.name} className={styles.chatName} speed={30} />
           <HStack gap={4} align="center" className={styles.chatMeta}>
-            <span className={`${styles.statusDot} ${styles[chat.status]}`} />
+            <Tooltip label={dotStatus === 'tool-use' && chat.harnessTool ? chat.harnessTool : dotStatus}>
+              <span className={`${styles.statusDot} ${styles[dotStatus]}`} />
+            </Tooltip>
             <span className={styles.llmBadge}>{chat.llmCommand || defaultLlmCommand}</span>
             {isRoot && <span>{relativeTime(chat.lastActiveAt)}</span>}
           </HStack>

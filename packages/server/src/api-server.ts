@@ -208,6 +208,15 @@ export class ApiServer {
         return
       }
 
+      if (method === 'GET' && path.startsWith('/read-screen/')) {
+        const chatId = this.extractParam(path, 2)
+        const lines = url.searchParams.get('lines') ? parseInt(url.searchParams.get('lines')!, 10) : undefined
+        const result = this.service.readScreen(chatId, lines)
+        if (!result) { this.json(res, { error: 'Chat not found' }, 404); return }
+        this.json(res, result)
+        return
+      }
+
       if (method === 'POST' && path === '/hooks') {
         const body = await this.readBody(req)
         const chatId = (body.chat_id as string) ?? caller ?? ''
@@ -765,6 +774,10 @@ export class ApiServer {
 
     this.themeUnsub = this.service.onThemeChange((resolved) => {
       this.broadcast({ type: 'theme:resolved', resolved })
+    })
+
+    this.chatRegistry.addNotificationListener((chatId, chatName, status) => {
+      this.broadcast({ type: 'notification', chatId, chatName, status })
     })
 
     this.httpServer = createServer(async (req, res) => {

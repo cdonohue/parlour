@@ -90,6 +90,15 @@ export class ParlourService {
     return { status: chat.status, name: chat.name, harness, output: tail }
   }
 
+  readScreen(chatId: string, lines?: number): { buffer: string } | null {
+    const chat = this.chatRegistry.getChat(chatId)
+    if (!chat) return null
+    const buffer = chat.ptyId ? this.ptyManager.getBuffer(chat.ptyId) : ''
+    if (!lines) return { buffer }
+    const allLines = buffer.split('\n')
+    return { buffer: allLines.slice(-lines).join('\n') }
+  }
+
   getChildren(parentId: string): Array<{ id: string; name: string; status: string }> {
     return this.chatRegistry.getChildren(parentId).map((c) => ({ id: c.id, name: c.name, status: c.status }))
   }

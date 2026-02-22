@@ -96,6 +96,9 @@ export function createMockAdapter(overrides: Partial<PlatformAdapter> = {}): Pla
       save: () => resolved(undefined),
       load: () => resolved(null),
     },
+    notifications: {
+      onNotification: () => noopUnsub(),
+    },
     ...overrides,
   }
 }
