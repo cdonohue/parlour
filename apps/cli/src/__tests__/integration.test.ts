@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { execFile } from 'node:child_process'
-import { createTestServer, type TestServer } from '../../../packages/server/src/__tests__/test-server'
+import { createTestServer, type TestServer } from '../../../../packages/server/src/__tests__/test-server'
 
 const CLI_PATH = new URL('../index.ts', import.meta.url).pathname
 

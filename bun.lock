@@ -20,11 +20,34 @@
         "vitest": "^4.0.18",
       },
     },
-    "chorale-cli": {
+    "apps/cli": {
       "name": "@chorale/cli",
       "version": "1.0.0",
       "bin": {
         "chorale": "./dist/index.js",
+      },
+    },
+    "apps/tauri": {
+      "name": "@chorale/tauri",
+      "version": "0.0.1",
+      "dependencies": {
+        "@chorale/app": "workspace:*",
+        "@chorale/platform": "workspace:*",
+        "@chorale/ui": "workspace:*",
+        "@tauri-apps/api": "^2.0.0",
+        "@tauri-apps/plugin-dialog": "^2.0.0",
+        "@tauri-apps/plugin-opener": "^2.0.0",
+        "@tauri-apps/plugin-shell": "^2.0.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+      },
+      "devDependencies": {
+        "@tauri-apps/cli": "^2.0.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "@vitejs/plugin-react": "^4.3.0",
+        "typescript": "^5.9.3",
+        "vite": "^6.3.0",
       },
     },
     "packages/api-types": {
@@ -100,29 +123,6 @@
         "react-dom": "^19.0.0",
       },
     },
-    "tauri": {
-      "name": "@chorale/tauri",
-      "version": "0.0.1",
-      "dependencies": {
-        "@chorale/app": "workspace:*",
-        "@chorale/platform": "workspace:*",
-        "@chorale/ui": "workspace:*",
-        "@tauri-apps/api": "^2.0.0",
-        "@tauri-apps/plugin-dialog": "^2.0.0",
-        "@tauri-apps/plugin-opener": "^2.0.0",
-        "@tauri-apps/plugin-shell": "^2.0.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0",
-      },
-      "devDependencies": {
-        "@tauri-apps/cli": "^2.0.0",
-        "@types/react": "^19.0.0",
-        "@types/react-dom": "^19.0.0",
-        "@vitejs/plugin-react": "^4.3.0",
-        "typescript": "^5.9.3",
-        "vite": "^6.3.0",
-      },
-    },
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
@@ -171,13 +171,13 @@
 
     "@chorale/app": ["@chorale/app@workspace:packages/app"],
 
-    "@chorale/cli": ["@chorale/cli@workspace:chorale-cli"],
+    "@chorale/cli": ["@chorale/cli@workspace:apps/cli"],
 
     "@chorale/platform": ["@chorale/platform@workspace:packages/platform"],
 
     "@chorale/server": ["@chorale/server@workspace:packages/server"],
 
-    "@chorale/tauri": ["@chorale/tauri@workspace:tauri"],
+    "@chorale/tauri": ["@chorale/tauri@workspace:apps/tauri"],
 
     "@chorale/ui": ["@chorale/ui@workspace:packages/ui"],
 

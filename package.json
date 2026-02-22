@@ -2,10 +2,10 @@
   "name": "chorale-root",
   "private": true,
   "packageManager": "bun@1.3.3",
-  "workspaces": ["packages/*", "chorale-cli", "tauri"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "turbo dev --filter=@chorale/app --filter=@chorale/server",
-    "dev:tauri": "cd tauri && bunx tauri dev",
+    "dev:tauri": "cd apps/tauri && bunx tauri dev",
     "build": "turbo build",
     "check": "turbo typecheck && bunx vitest run",
     "typecheck": "turbo typecheck",
