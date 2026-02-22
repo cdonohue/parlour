@@ -5,8 +5,8 @@ import { homedir } from 'node:os'
 import { spawn } from 'node:child_process'
 import { PtyManager } from './pty-manager'
 import { GitService } from './git-service'
-import { PARLOUR_DIR, BARE_DIR, PROJECT_SETUP_DIR, createChatDir, writeAgentsMd, scanProjects, copySkillsToChat, ensureGlobalSkills } from './parlour-dirs'
-import type { ProjectInfo } from './parlour-dirs'
+import { CHORALE_DIR, BARE_DIR, PROJECT_SETUP_DIR, createChatDir, writeAgentsMd, scanProjects, copySkillsToChat, ensureGlobalSkills } from './chorale-dirs'
+import type { ProjectInfo } from './chorale-dirs'
 import { resolveAdapter } from './agent-adapter'
 import { BIN_DIR } from './wrapper-manager'
 import { getGlobalMcpServers } from './config-service'
@@ -228,7 +228,7 @@ export class ChatRegistry {
       await adapter.generateConfig({ chatDir: dirPath, llmCommand, globalMcpServers })
 
       const adapterEnv = adapter.buildEnv({ chatId })
-      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
+      const env: Record<string, string> = { CHORALE_CHAT_ID: chatId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
       const promptArgs = (opts.prompt && adapter.supportsPromptArgs) ? adapter.promptArgs(opts.prompt) : []
       const command = this.buildShellCommand(llmCommand, promptArgs)
       ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
@@ -320,7 +320,7 @@ export class ChatRegistry {
       }
 
       const adapterEnv = adapter.buildEnv({ chatId, parentChatId: parentId })
-      const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PARLOUR_PARENT_CHAT_ID: parentId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
+      const env: Record<string, string> = { CHORALE_CHAT_ID: chatId, CHORALE_PARENT_CHAT_ID: parentId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
       const promptArgs = (opts.prompt && adapter.supportsPromptArgs) ? adapter.promptArgs(opts.prompt) : []
       const command = this.buildShellCommand(llmCommand, promptArgs)
       ptyId = await this.ptyManager.create(dirPath, undefined, command, undefined, env)
@@ -387,7 +387,7 @@ export class ChatRegistry {
     const llmCommand = this.resolveLlmCommand(chat.llmCommand)
     const adapter = resolveAdapter(llmCommand)
     const adapterEnv = adapter.buildEnv({ chatId, parentChatId: chat.parentId })
-    const env: Record<string, string> = { PARLOUR_CHAT_ID: chatId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
+    const env: Record<string, string> = { CHORALE_CHAT_ID: chatId, PATH: `${BIN_DIR}:${process.env.PATH}`, ...adapterEnv, ...this.themeEnv() }
 
     const args = withResume ? adapter.resumeLast : []
     const command = this.buildShellCommand(llmCommand, args)
@@ -482,7 +482,7 @@ export class ChatRegistry {
   // ── Persistence (per-chat metadata.json) ──
 
   async loadFromDisk(): Promise<void> {
-    const chatsDir = join(PARLOUR_DIR, 'chats')
+    const chatsDir = join(CHORALE_DIR, 'chats')
     let entries: string[]
     try {
       entries = await readdir(chatsDir)

@@ -4,9 +4,9 @@ export type {
   CliEvent,
   LifecycleEvent,
   HarnessStatus,
-} from '@parlour/api-types'
+} from '@chorale/api-types'
 
-import type { LifecycleEvent } from '@parlour/api-types'
+import type { LifecycleEvent } from '@chorale/api-types'
 
 type Handler = (event: LifecycleEvent) => void
 type Unsubscribe = () => void

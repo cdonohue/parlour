@@ -5,21 +5,21 @@ import { PtyManager } from './pty-manager'
 import { ChatRegistry } from './chat-registry'
 import { TaskScheduler } from './task-scheduler'
 import { ThemeManager } from './theme-manager'
-import { ParlourService } from './parlour-service'
+import { ChoraleService } from './chorale-service'
 import { ApiServer } from './api-server'
-import { PARLOUR_DIR, ensureGlobalSkills } from './parlour-dirs'
+import { CHORALE_DIR, ensureGlobalSkills } from './chorale-dirs'
 import { logger } from './logger'
 import { lifecycle } from './lifecycle'
 
 const { values } = parseArgs({
   options: {
     port: { type: 'string', default: '0' },
-    'data-dir': { type: 'string', default: PARLOUR_DIR },
+    'data-dir': { type: 'string', default: CHORALE_DIR },
   },
 })
 
 const dataDir = values['data-dir']!
-const stateFile = join(dataDir, 'parlour-state.json')
+const stateFile = join(dataDir, 'chorale-state.json')
 
 function readSettings(): { llmCommand: string; maxChatDepth: number; projectRoots: string[]; theme: string } {
   try {
@@ -64,8 +64,8 @@ chatRegistry.reconcilePtys()
 const taskScheduler = new TaskScheduler(chatRegistry, readSettings, () => {})
 await taskScheduler.loadAndStart().catch((err) => logger.error('Failed to load schedules', { error: String(err) }))
 
-const parlourService = new ParlourService(chatRegistry, ptyManager, taskScheduler, readSettings, themeManager, stateFile)
-const apiServer = new ApiServer(parlourService, chatRegistry, taskScheduler)
+const choraleService = new ChoraleService(chatRegistry, ptyManager, taskScheduler, readSettings, themeManager, stateFile)
+const apiServer = new ApiServer(choraleService, chatRegistry, taskScheduler)
 
 const requestedPort = values.port !== undefined ? parseInt(values.port, 10) : 3000
 const port = await apiServer.start(requestedPort)

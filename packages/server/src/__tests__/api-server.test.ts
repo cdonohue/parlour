@@ -61,8 +61,8 @@ describe('API Server Integration', () => {
   })
 
   describe('App', () => {
-    it('GET /app/parlour-path returns temp dir', async () => {
-      const res = await json('/app/parlour-path')
+    it('GET /app/chorale-path returns temp dir', async () => {
+      const res = await json('/app/chorale-path')
       expect(res.path).toBe(server().dataDir)
     })
 

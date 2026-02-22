@@ -1,13 +1,13 @@
 import { join } from 'node:path'
 import { mkdirSync, appendFileSync, statSync, renameSync } from 'node:fs'
-import { PARLOUR_DIR } from './parlour-dirs'
+import { CHORALE_DIR } from './chorale-dirs'
 
 type Level = 'error' | 'warn' | 'info' | 'debug'
 type Ctx = Record<string, unknown>
 
 const LEVELS: Record<Level, number> = { error: 0, warn: 1, info: 2, debug: 3 }
-const LOG_DIR = join(PARLOUR_DIR, 'logs')
-const LOG_FILE = join(LOG_DIR, 'parlour.jsonl')
+const LOG_DIR = join(CHORALE_DIR, 'logs')
+const LOG_FILE = join(LOG_DIR, 'chorale.jsonl')
 const MAX_SIZE = 5 * 1024 * 1024
 
 let threshold: number = LEVELS.info
@@ -35,7 +35,7 @@ function write(level: Level, msg: string, ctx: Ctx): void {
 
   const entry = { ts: new Date().toISOString(), level, msg, ...ctx }
 
-  if (process.env.NODE_ENV !== 'production' || process.env.PARLOUR_LOG_LEVEL) {
+  if (process.env.NODE_ENV !== 'production' || process.env.CHORALE_LOG_LEVEL) {
     const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
     fn(`[${level}] ${msg}`, Object.keys(ctx).length > 0 ? ctx : '')
   }
@@ -67,7 +67,7 @@ function createLogger(base: Ctx = {}): Logger {
 
 export const logger = createLogger()
 
-const envLevel = process.env.PARLOUR_LOG_LEVEL as Level | undefined
+const envLevel = process.env.CHORALE_LOG_LEVEL as Level | undefined
 if (envLevel && envLevel in LEVELS) {
   threshold = LEVELS[envLevel]
 }

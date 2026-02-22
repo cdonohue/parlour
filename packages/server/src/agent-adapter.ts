@@ -3,11 +3,11 @@ import { mkdir, writeFile, readFile, symlink, unlink } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import type { McpServerConfig } from './config-service'
 import { getCustomLlms } from './config-service'
-import { LLM_DEFAULTS_DIR } from './parlour-dirs'
+import { LLM_DEFAULTS_DIR } from './chorale-dirs'
 import { ClaudeOutputParser, GenericOutputParser, type HarnessParser } from './harness-parser'
 
 const DEFAULT_ALLOW = [
-  'Bash(parlour *)',
+  'Bash(chorale *)',
 ]
 
 const DEFAULT_DENY = [
@@ -109,9 +109,9 @@ class ClaudeAdapter implements AgentAdapter {
 
 function buildClaudeHooks(): Record<string, unknown[]> {
   return {
-    PreToolUse: [{ hooks: [{ type: 'command', command: 'parlour hook pre-tool-use' }] }],
-    PostToolUse: [{ hooks: [{ type: 'command', command: 'parlour hook post-tool-use' }] }],
-    Stop: [{ hooks: [{ type: 'command', command: 'parlour hook stop' }] }],
+    PreToolUse: [{ hooks: [{ type: 'command', command: 'chorale hook pre-tool-use' }] }],
+    PostToolUse: [{ hooks: [{ type: 'command', command: 'chorale hook post-tool-use' }] }],
+    Stop: [{ hooks: [{ type: 'command', command: 'chorale hook stop' }] }],
   }
 }
 
@@ -164,9 +164,9 @@ class GeminiAdapter implements AgentAdapter {
 
 function buildGeminiHooks(): Record<string, unknown[]> {
   return {
-    BeforeTool: [{ hooks: [{ type: 'command', command: 'parlour-notify pre-tool-use --tool $TOOL_NAME' }] }],
-    AfterTool: [{ hooks: [{ type: 'command', command: 'parlour-notify post-tool-use --tool $TOOL_NAME' }] }],
-    SessionEnd: [{ hooks: [{ type: 'command', command: 'parlour-notify stop' }] }],
+    BeforeTool: [{ hooks: [{ type: 'command', command: 'chorale-notify pre-tool-use --tool $TOOL_NAME' }] }],
+    AfterTool: [{ hooks: [{ type: 'command', command: 'chorale-notify post-tool-use --tool $TOOL_NAME' }] }],
+    SessionEnd: [{ hooks: [{ type: 'command', command: 'chorale-notify stop' }] }],
   }
 }
 
@@ -191,7 +191,7 @@ class CodexAdapter implements AgentAdapter {
     const mcpServers = buildMcpServers(globalMcpServers)
 
     let toml = 'approval_policy = "never"\n'
-    toml += 'notify = ["parlour-notify", "stop"]\n\n'
+    toml += 'notify = ["chorale-notify", "stop"]\n\n'
 
     for (const [name, config] of Object.entries(mcpServers)) {
       const c = config as Record<string, unknown>
@@ -234,7 +234,7 @@ class OpenCodeAdapter implements AgentAdapter {
     await mkdir(pluginDir, { recursive: true })
     const templatePath = join(import.meta.dirname, 'templates', 'opencode-plugin.js')
     const template = await readFile(templatePath, 'utf-8')
-    const pluginPath = join(pluginDir, 'parlour-plugin.js')
+    const pluginPath = join(pluginDir, 'chorale-plugin.js')
     await writeFile(pluginPath, template, 'utf-8')
 
     let config: Record<string, unknown> = {
@@ -268,7 +268,7 @@ class AiderAdapter implements AgentAdapter {
 
   buildEnv(): Record<string, string> {
     return {
-      AIDER_NOTIFICATIONS_COMMAND: 'parlour-notify stop',
+      AIDER_NOTIFICATIONS_COMMAND: 'chorale-notify stop',
       AIDER_NOTIFICATIONS: '1',
     }
   }

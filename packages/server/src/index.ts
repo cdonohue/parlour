@@ -1,7 +1,7 @@
 export { PtyManager } from './pty-manager'
 export { ChatRegistry, type CreateChatOpts } from './chat-registry'
 export { TaskScheduler, type Schedule } from './task-scheduler'
-export { ParlourService } from './parlour-service'
+export { ChoraleService } from './chorale-service'
 export { ApiServer } from './api-server'
 export { GitService, type FileStatus, type FileDiff } from './git-service'
 export { ForgeService } from './forge-service'
@@ -16,11 +16,11 @@ export { lifecycle, type Lifecycle } from './lifecycle'
 export { logger, type Logger } from './logger'
 
 export {
-  PARLOUR_DIR, BARE_DIR, PROJECT_SETUP_DIR, SKILLS_DIR, LLM_DEFAULTS_DIR,
+  CHORALE_DIR, BARE_DIR, PROJECT_SETUP_DIR, SKILLS_DIR, LLM_DEFAULTS_DIR,
   createChatDir, writeAgentsMd, scanProjects, scanProjectRoots,
   ensureGlobalSkills, copySkillsToChat, scanSkills,
   getClaudeSessionId, type ProjectInfo,
-} from './parlour-dirs'
+} from './chorale-dirs'
 export { loadJsonFile, saveJsonFile } from './claude-config'
 export {
   detectInstalledClis, resolveCliType, getResumeArgs,
@@ -28,7 +28,7 @@ export {
 } from './cli-detect'
 export { generateCliConfig, getCliBaseDefaults } from './cli-config'
 export {
-  loadParlourConfig, saveParlourConfig,
+  loadChoraleConfig, saveChoraleConfig,
   getGlobalMcpServers, getCustomLlms,
-  type McpServerConfig, type CustomLlmConfig, type ParlourConfig,
+  type McpServerConfig, type CustomLlmConfig, type ChoraleConfig,
 } from './config-service'

@@ -11,7 +11,7 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@parlour/api-types": ["../api-types/src/index.ts"]
+      "@chorale/api-types": ["../api-types/src/index.ts"]
     }
   },
   "include": ["src/**/*"]

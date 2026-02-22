@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { WebSocket } from 'ws'
-import type { ClientMessage, ServerMessage } from '@parlour/api-types'
+import type { ClientMessage, ServerMessage } from '@chorale/api-types'
 import { useTestServer } from './test-server'
 
 class WsClient {
