@@ -73,6 +73,12 @@ export interface ReportRequest {
   message: string
 }
 
+export interface SendRequest {
+  chat_id: string
+  target_id: string
+  message: string
+}
+
 export interface HookRequest {
   chat_id?: string
   event: string

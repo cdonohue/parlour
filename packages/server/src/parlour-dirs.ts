@@ -105,6 +105,9 @@ Use the \`parlour\` command to interact with Parlour. Run \`parlour --help\` for
 - \`parlour status [chatId]\` — Check status of a chat (defaults to current).
 - \`parlour list-children\` — List child chats.
 - \`parlour report "<message>"\` — Send a message to the parent chat.
+- \`parlour send <chatId> "<message>"\` — Send a message to any chat by ID.
+
+Dispatch once, then use \`send\` to converse with children. Use \`report\` to reply to parent.
 
 ### Scheduling
 

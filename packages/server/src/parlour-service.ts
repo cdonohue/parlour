@@ -67,7 +67,7 @@ export class ParlourService {
     opts?: { parentId?: string; llm?: string; project?: string; branch?: string },
   ): Promise<{ chatId: string; chatDir: string }> {
     const chatOpts = {
-      name: deriveShortTitle(prompt),
+      name: 'New Chat',
       llmCommand: opts?.llm ?? this.settingsGetter().llmCommand,
       prompt,
       background: true,
@@ -98,6 +98,26 @@ export class ParlourService {
     const parent = this.chatRegistry.getChat(parentId)
     if (!parent?.ptyId) return false
     this.ptyManager.write(parent.ptyId, `\r\n${message}\r\n`)
+    return true
+  }
+
+  async send(chatId: string, targetId: string, message: string): Promise<boolean> {
+    const target = this.chatRegistry.getChat(targetId)
+    if (!target) return false
+
+    if (!target.ptyId) {
+      await this.chatRegistry.resumeChat(targetId)
+      const resumed = this.chatRegistry.getChat(targetId)
+      if (!resumed?.ptyId) return false
+      const bracketed = `\x1b[200~${message}\x1b[201~`
+      await this.ptyManager.writeWhenReady(resumed.ptyId, bracketed, false)
+      setTimeout(() => this.ptyManager.write(resumed.ptyId!, '\r'), 500)
+      return true
+    }
+
+    const bracketed = `\x1b[200~${message}\x1b[201~`
+    this.ptyManager.write(target.ptyId, bracketed)
+    setTimeout(() => this.ptyManager.write(target.ptyId!, '\r'), 500)
     return true
   }
 
@@ -222,7 +242,7 @@ export class ParlourService {
     } else if (event === 'post-tool-use' && data?.tool) {
       lifecycle.emit({ type: 'harness:tool:end', chatId, tool: data.tool as string })
     } else if (event === 'stop') {
-      lifecycle.emit({ type: 'harness:stop', chatId, reason: data?.reason as string | undefined })
+      lifecycle.emit({ type: 'harness:stop', chatId, reason: data?.reason as string | undefined, lastMessage: data?.last_assistant_message as string | undefined })
     }
   }
 

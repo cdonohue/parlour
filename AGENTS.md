@@ -114,6 +114,7 @@ API routes (all under `/api/`):
 | GET | /status/{chatId} | Status + harness state + terminal tail |
 | GET | /children/{parentId} | List child chats |
 | POST | /report | Write message to parent PTY |
+| POST | /send | Write message to any chat by ID |
 | GET/POST | /schedules | List or create schedules |
 | POST | /schedules/{id} | Cancel schedule |
 | POST | /schedules/{id}/run | Run schedule now |
@@ -139,7 +140,7 @@ Three event streams feed into the lifecycle emitter (lifecycle.ts):
 - `harness:status` (unified state change from HarnessTracker)
 
 **CLI events** — emitted by ApiServer on every agent request:
-- `cli:dispatch`, `cli:status`, `cli:schedule`, `cli:report`, `cli:project`, `cli:hook`
+- `cli:dispatch`, `cli:status`, `cli:schedule`, `cli:report`, `cli:send`, `cli:project`, `cli:hook`
 
 Subscribe with `lifecycle.on('*', handler)` for all events, or prefix like `lifecycle.on('harness:*', handler)`.
 

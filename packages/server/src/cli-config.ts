@@ -6,6 +6,10 @@ import type { McpServerConfig } from './config-service'
 import { getGlobalMcpServers, getCustomLlms } from './config-service'
 import { LLM_DEFAULTS_DIR } from './parlour-dirs'
 
+const DEFAULT_ALLOW = [
+  'Bash(parlour *)',
+]
+
 const DEFAULT_DENY = [
   'Bash(rm -rf *)',
   'Bash(sudo *)',
@@ -69,7 +73,7 @@ async function configClaude(ctx: ConfigContext): Promise<void> {
 
   await mkdir(join(chatDir, '.claude'), { recursive: true })
   let settings: Record<string, unknown> = {
-    permissions: { deny: DEFAULT_DENY, defaultMode: 'bypassPermissions' },
+    permissions: { allow: DEFAULT_ALLOW, deny: DEFAULT_DENY, defaultMode: 'bypassPermissions' },
     hooks: buildClaudeHooks(),
   }
   const raw = await readDefaults('claude', 'settings.local.json')
@@ -199,7 +203,7 @@ const GENERATORS: Record<string, (ctx: ConfigContext) => Promise<void>> = {
 export function getCliBaseDefaults(): Record<string, string> {
   return {
     claude: JSON.stringify({
-      permissions: { deny: DEFAULT_DENY, defaultMode: 'bypassPermissions' },
+      permissions: { allow: DEFAULT_ALLOW, deny: DEFAULT_DENY, defaultMode: 'bypassPermissions' },
     }, null, 2),
     gemini: JSON.stringify({}, null, 2),
     codex: 'approval_policy = "never"\n',
